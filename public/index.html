@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/characters.js"></script>
 <style>
 :root{color-scheme:dark;--gold:#d5a45e;--gold2:#f0cb8a;--red:#ba3c2f;--panel:rgba(22,17,14,.88);--line:rgba(220,176,111,.32);--muted:#b8a895;--cream:#f1e5d0}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#100d0b;color:var(--cream);font-family:Inter,system-ui,sans-serif}button,input{font:inherit}button{cursor:pointer;color:inherit}button:disabled{opacity:.35;cursor:not-allowed}
@@ -225,7 +226,9 @@ function makeBull(){
 }
 function headTexture(character){const c=document.createElement('canvas');c.width=256;c.height=256;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#e7c09d');g.addColorStop(.55,'#d3a07d');g.addColorStop(1,'#9c694f');x.fillStyle=g;x.fillRect(0,0,256,256);for(let i=0;i<850;i++){x.fillStyle=`rgba(75,38,27,${Math.random()*.045})`;x.fillRect(Math.random()*256,Math.random()*256,1,1)}x.fillStyle='rgba(110,55,43,.12)';x.beginPath();x.ellipse(128,174,37,8,0,0,Math.PI*2);x.fill();return new THREE.CanvasTexture(c)}
 function createCharacter(player,index){
- const root=new THREE.Group();const char=player.character||'walter',skinId=player.skin||'classic';
+ const char=player.character||'walter',skinId=player.skin||'classic';
+ if((char==='walter'||char==='jesse')&&window.AGRO_CUSTOM_CHARACTERS){const custom=window.AGRO_CUSTOM_CHARACTERS.create(char,skinId);if(custom)return custom;}
+ const root=new THREE.Group();
  const palettes={classic:0x5b4636,hazmat:0xd1b72f,lawyer:0x762d49,neon:0x087e82,copper:0x9a512d,midnight:0x202632};const gusClassic=char==='gus'&&skinId==='classic';const jacket=mat(gusClassic?0x202a36:(palettes[skinId]||0x5b4636),.56,.12),shirt=mat(char==='saul'?0xf3e3c1:char==='walter'?0xd0d2c6:char==='gus'?0xe8e9e7:0x363944,.78),pants=mat(char==='gus'?0x20232a:0x282522,.83),skin=mat(char==='gus'?0xa97860:0xc58e6b,.76),hair=mat(char==='saul'?0x493124:char==='gus'?0x171719:0x35271f,.82),dark=mat(0x171514,.42),white=mat(0xf0e8db,.38),eye=mat(0x33241d,.35),tie=mat(char==='saul'?0xd6a12f:char==='gus'?0x54262b:0x252e31,.46);
  // Lower body, tailored torso, shoulder line and layered shirt.
  skin.map=headTexture(char);skin.needsUpdate=true;
