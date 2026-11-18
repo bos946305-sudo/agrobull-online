@@ -29,10 +29,38 @@
 @media (orientation:portrait) and (max-width:800px){#rotate{display:flex}#topbar,#leftpanel,#centerinfo,#bottom{display:none!important}}
 @media(max-width:700px){#lastCards{top:60px;right:8px;width:min(175px,39vw);font-size:9px;padding:6px 8px}.skillControls button{min-width:105px;padding:7px 8px}.skillControls select{max-width:125px}#topbar{padding:10px}.brand{font-size:21px}.pill{padding:7px 9px;font-size:10px}#leftpanel{left:8px;top:68px}.playerTag{width:140px;padding:7px}.playerTag strong{font-size:10px}#centerinfo{top:66px;width:52vw}.glass{padding:7px 10px}.cropname{font-size:16px}.statusline{font-size:9px}.hand{min-height:83px}.playingcard{width:52px;height:75px}.action{min-width:110px;padding:10px 12px}.modal{padding:18px}.modal h1{font-size:38px}}
 @media(max-height:480px) and (orientation:landscape){#leftpanel{top:57px;gap:5px}.playerTag{padding:5px 8px}.playerTag .face{font-size:17px}#centerinfo{top:55px}.hand{min-height:72px}.playingcard{height:67px;width:48px}.playingcard .sym{font-size:22px}.action{padding:8px 12px}}
+
+/* Cinematic render polish and compact last-play notice. */
+#filmgrain{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.055;mix-blend-mode:soft-light;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.14) 0,rgba(255,255,255,.14) 1px,transparent 1px,transparent 3px),repeating-linear-gradient(90deg,rgba(0,0,0,.12) 0,rgba(0,0,0,.12) 1px,transparent 1px,transparent 4px)}
+#vignette{background:radial-gradient(ellipse at 50% 46%,rgba(0,0,0,0) 34%,rgba(0,0,0,.2) 72%,rgba(0,0,0,.72) 100%),linear-gradient(180deg,rgba(0,0,0,.13),transparent 18%,transparent 72%,rgba(0,0,0,.23))}
+#lastCards{top:86px;right:16px;left:auto;width:min(236px,24vw);padding:9px 12px 9px 35px;border:1px solid rgba(95,190,169,.38);border-radius:12px;background:linear-gradient(135deg,rgba(8,27,29,.94),rgba(8,15,19,.82));box-shadow:0 12px 32px rgba(0,0,0,.34),inset 0 1px rgba(255,255,255,.08);font-size:10px;line-height:1.45;color:#e1fff5;opacity:0;visibility:hidden;transform:translate3d(12px,0,0);transition:opacity .24s ease,transform .24s ease,visibility .24s;pointer-events:none;backdrop-filter:blur(16px)}
+#lastCards:before{content:"↗";position:absolute;left:11px;top:50%;transform:translateY(-50%);width:17px;height:17px;display:grid;place-items:center;border-radius:50%;background:rgba(88,185,164,.16);color:#8de4cf;font-size:12px}
+#lastCards.show{opacity:1;visibility:visible;transform:translate3d(0,0,0)}
+#lastCards .noticeName{display:block;color:#95e7d4;font-size:8px;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:2px}
+#lastCards .noticeText{display:block;color:#f1fff9;font-size:10px;font-weight:700}
+#centerinfo .glass{border-color:rgba(218,174,112,.2);background:linear-gradient(135deg,rgba(15,12,10,.78),rgba(19,15,12,.58));box-shadow:0 12px 34px rgba(0,0,0,.28),inset 0 1px rgba(255,255,255,.06)}
+.playerTag{background:linear-gradient(135deg,rgba(18,14,11,.82),rgba(9,9,10,.66));border-color:rgba(229,190,135,.24);box-shadow:0 8px 26px rgba(0,0,0,.3),inset 0 1px rgba(255,255,255,.055)}
+.playerTag.active{border-color:#f0cb8a;box-shadow:0 0 0 1px rgba(240,203,138,.42),0 0 25px rgba(211,156,82,.22),0 8px 28px rgba(0,0,0,.34)}
+.playingcard{background:linear-gradient(145deg,#fff9e9 0%,#f1e3c9 52%,#cdb99b 100%);border-color:#ead9b9;box-shadow:0 15px 30px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.7),inset 0 -8px 16px rgba(110,76,42,.12)}
+.playingcard:before{content:"";position:absolute;inset:5px;border:1px solid rgba(115,82,48,.32);border-radius:8px;pointer-events:none}
+.playingcard.selected{box-shadow:0 0 0 1px #f4d18e,0 0 24px rgba(240,190,103,.36),0 20px 32px rgba(0,0,0,.56),inset 0 0 0 1px rgba(255,255,255,.8)}
+.action{border-color:rgba(245,203,137,.76);background:linear-gradient(180deg,#c08b4b,#76502a);box-shadow:0 3px 0 #3a2818,0 9px 24px rgba(0,0,0,.38),inset 0 1px rgba(255,255,255,.22)}
+.action:active{transform:translateY(2px);box-shadow:0 1px 0 #3a2818,0 5px 15px rgba(0,0,0,.35)}
+@media(max-width:700px){
+ #lastCards{top:88px;right:8px;width:min(156px,34vw);padding:7px 8px 7px 28px;border-radius:10px;font-size:9px}
+ #lastCards:before{left:7px;width:15px;height:15px;font-size:10px}
+ #lastCards .noticeName{font-size:7px;margin-bottom:1px}
+ #lastCards .noticeText{font-size:9px;line-height:1.25}
+ #centerinfo{width:min(390px,48vw)}
+ #centerinfo .glass{padding:6px 10px}
+ .playerTag{backdrop-filter:blur(10px)}
+}
+@media(prefers-reduced-motion:reduce){#lastCards,.playingcard,.action{transition:none}}
+
 </style>
 </head>
 <body>
-<canvas id="scene"></canvas><div id="vignette"></div><div id="rotate">ПОВЕРНИ ТЕЛЕФОН ГОРИЗОНТАЛЬНО<br><small style="display:block;font:11px Inter;margin-top:10px;letter-spacing:0;color:#c5af91">AGROBULL создан для альбомного режима</small></div>
+<canvas id="scene"></canvas><div id="vignette"></div><div id="filmgrain" aria-hidden="true"></div><div id="rotate">ПОВЕРНИ ТЕЛЕФОН ГОРИЗОНТАЛЬНО<br><small style="display:block;font:11px Inter;margin-top:10px;letter-spacing:0;color:#c5af91">AGROBULL создан для альбомного режима</small></div>
 <div id="topbar"><div class="brand">AGROBULL<small>3D ONLINE RODEO</small></div><div class="topright"><div class="pill">🪙 <b id="coinCount">250</b></div><div class="pill" id="roomPill" style="display:none">КОМНАТА <b id="roomPillCode">----</b></div><button class="iconbtn" id="helpBtn" title="Правила">?</button></div></div>
 <div id="leftpanel"></div>
 <div id="centerinfo"><div class="glass"><div class="cropname" id="cropName">АГРОБАР</div><div class="statusline" id="statusLine">Создай комнату или присоединись к друзьям</div></div></div><div id="lastCards"></div>
@@ -77,7 +105,7 @@ const defaultProfile = {name:'Игрок',character:'walter',skin:'classic',coin
 function loadProfile(){try{return {...defaultProfile,...JSON.parse(localStorage.getItem('agrobull_profile_v2')||'{}')}}catch(_){return {...defaultProfile}}}
 let profile = loadProfile();
 if(!Array.isArray(profile.owned))profile.owned=['classic'];
-let socket = null, selfId = null, room = null, lobby = null, gameState = null, selected = new Set(), lastHandKey = '', paidGames = [];let beggingMotion=null,lastBeggingId=null,revivePulse=null;
+let socket = null, selfId = null, room = null, lobby = null, gameState = null, selected = new Set(), lastHandKey = '', paidGames = [];let beggingMotion=null,lastBeggingId=null,revivePulse=null,lastPlayNoticeKey='',lastPlayNoticeTimer=null;
 try{paidGames=JSON.parse(localStorage.getItem('agrobull_paid_games')||'[]')}catch(_){paidGames=[]}
 function saveProfile(){localStorage.setItem('agrobull_profile_v2',JSON.stringify(profile));updateCoins()}
 function updateCoins(){$('#coinCount').textContent=profile.coins;$('#garageCoins').textContent=profile.coins}
@@ -123,8 +151,27 @@ function renderGameState(state){
  const p=state.players||[],me=p.find(x=>x.id===selfId),isMyTurn=state.currentId===selfId&&state.phase==='playing';
  $('#leftpanel').innerHTML='';p.forEach(pl=>{const ch=characters.find(c=>c.id===pl.character)||characters[0],tag=document.createElement('div');tag.className='playerTag'+(pl.id===state.currentId?' active':'')+(!pl.alive?' dead':'');tag.innerHTML=`<span class="face">${ch.emoji}</span><span class="pmeta"><strong>${escapeHtml(pl.name)} ${pl.id===selfId?'(ты)':''}</strong><small>${pl.alive?`${pl.handCount} карт • ${pl.rides}/${pl.fallAt} выездов`:'ВЫБЫЛ'}</small></span><span class="rides">${pl.id===state.currentId?'ХОД':''}</span>`;$('#leftpanel').append(tag)});
  $('#cropName').textContent=state.table?`${state.table.icon} ${state.table.name}`:`РАУНД ${state.round||1}`;
- $('#statusLine').textContent=state.message||'';
- const last=state.lastPlay,actor=last&&p.find(x=>x.id===last.playerId);$('#lastCards').textContent=last?`${actor?.name||'Игрок'} выложил ${last.count} карт${last.revealed?' — '+(last.cards||[]).map(c=>c.icon).join(' '):' рубашкой вверх'}`:'';
+ const last=state.lastPlay,actor=last&&p.find(x=>x.id===last.playerId);
+ const current=p.find(x=>x.id===state.currentId);
+ const isPlayMessage=/выложил\\s+\\d+\\s+карт/i.test(state.message||'');
+ $('#statusLine').textContent=isPlayMessage?(current?'Ход: '+current.name:'Карты выложены'):(state.message||'');
+ const notice=$('#lastCards');
+ if(last && actor && (state.phase==='playing'||state.phase==='rodeo')){
+   const playKey=[state.round,state.pileCount,last.playerId,last.count,last.revealed?1:0,(last.cards||[]).map(c=>c.id).join('')].join('|');
+   if(playKey!==lastPlayNoticeKey){
+     lastPlayNoticeKey=playKey;
+     const label=last.revealed?(last.cards||[]).map(c=>c.icon).join(' '):'рубашкой вверх';
+     notice.innerHTML='<span class="noticeName">Последний ход</span><span class="noticeText"></span>';
+     notice.querySelector('.noticeText').textContent=actor.name+' · '+last.count+' карт · '+label;
+     notice.classList.add('show');
+     clearTimeout(lastPlayNoticeTimer);
+     lastPlayNoticeTimer=setTimeout(()=>notice.classList.remove('show'),4300);
+   }
+ }else if(!last){
+   lastPlayNoticeKey='';
+   notice.classList.remove('show');
+   clearTimeout(lastPlayNoticeTimer);
+ }
  const hand=me?.hand||[];const handKey=`${state.round}|${hand.map(c=>c.id).join(',')}`;if(handKey!==lastHandKey){selected.clear();lastHandKey=handKey}
  $('#hand').innerHTML='';hand.forEach((card,index)=>{const b=document.createElement('button');b.className='playingcard'+(card.id==='b'?' bull':'')+(selected.has(index)?' selected':'');b.innerHTML=`<span class="corner">${card.id==='b'?'★':'AG'}</span><span class="sym">${card.icon}</span><span class="label">${card.name}</span>`;b.onclick=()=>{if(!isMyTurn)return;if(selected.has(index))selected.delete(index);else if(selected.size<3)selected.add(index);renderGameState({...state,players:state.players});};$('#hand').append(b)});
  $('#playBtn').disabled=!isMyTurn||selected.size===0;$('#callBtn').disabled=!isMyTurn||!last;
@@ -159,22 +206,40 @@ function mesh(parent,geo,material,pos=[0,0,0],scale=null){const m=new THREE.Mesh
 function sphere(parent,material,pos,scale,detail=24){return mesh(parent,new THREE.SphereGeometry(1,detail,Math.max(12,detail>>1)),material,pos,scale)}
 function rod(parent,a,b,radius,material,r2=radius){const A=v3(...a),B=v3(...b),d=B.clone().sub(A),m=mesh(parent,new THREE.CylinderGeometry(r2,radius,d.length(),12),material,[0,0,0]);m.position.copy(A.clone().add(B).multiplyScalar(.5));m.quaternion.setFromUnitVectors(v3(0,1,0),d.normalize());return m}
 function tube(parent,points,radius,material,segments=24){const curve=new THREE.CatmullRomCurve3(points.map(p=>v3(...p)));return mesh(parent,new THREE.TubeGeometry(curve,segments,radius,8,false),material)}
-function makeWoodTexture(){const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');x.fillStyle='#654027';x.fillRect(0,0,512,512);for(let i=0;i<120;i++){const y=Math.random()*512;x.strokeStyle=`rgba(${i%2?24:218},${i%2?13:143},${i%2?7:82},${.05+Math.random()*.13})`;x.lineWidth=1+Math.random()*5;x.beginPath();x.moveTo(0,y);x.bezierCurveTo(130,y+Math.random()*12-6,350,y+Math.random()*20-10,512,y+Math.random()*12-6);x.stroke()}for(let i=0;i<35;i++){x.fillStyle='rgba(18,9,4,.13)';x.beginPath();x.ellipse(Math.random()*512,Math.random()*512,5+Math.random()*25,2+Math.random()*4,Math.random(),0,Math.PI*2);x.fill()}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,1);return t}
+function makeWoodTexture(){
+ const c=document.createElement('canvas');c.width=1024;c.height=512;const x=c.getContext('2d');
+ const g=x.createLinearGradient(0,0,0,512);g.addColorStop(0,'#795235');g.addColorStop(.28,'#5e3d27');g.addColorStop(.65,'#70482b');g.addColorStop(1,'#3e281d');x.fillStyle=g;x.fillRect(0,0,1024,512);
+ for(let i=0;i<620;i++){const y=Math.random()*512;x.strokeStyle='rgba('+(i%3===0?'25,13,7':'224,169,106')+','+(.018+Math.random()*.09)+')';x.lineWidth=.4+Math.random()*2.8;x.beginPath();x.moveTo(0,y);x.bezierCurveTo(210,y+Math.random()*18-9,670,y+Math.random()*26-13,1024,y+Math.random()*18-9);x.stroke()}
+ for(let i=0;i<34;i++){const px=Math.random()*1024,py=Math.random()*512;x.strokeStyle='rgba(27,15,8,.22)';x.lineWidth=2;x.beginPath();x.ellipse(px,py,12+Math.random()*34,3+Math.random()*8,Math.random()*.2,0,Math.PI*2);x.stroke();x.strokeStyle='rgba(210,160,102,.11)';x.lineWidth=1;x.beginPath();x.ellipse(px,py,7+Math.random()*18,2+Math.random()*4,0,0,Math.PI*2);x.stroke()}
+ for(let i=0;i<1800;i++){const a=Math.random()*.055;x.fillStyle='rgba('+(Math.random()>.5?'255,218,171':'12,7,4')+','+a+')';x.fillRect(Math.random()*1024,Math.random()*512,1+Math.random()*2,1)}
+ const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,1);t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t
+}
+function makeWoodBumpTexture(){
+ const c=document.createElement('canvas');c.width=512;c.height=256;const x=c.getContext('2d');x.fillStyle='rgb(126,126,126)';x.fillRect(0,0,512,256);
+ for(let i=0;i<360;i++){const y=Math.random()*256;x.strokeStyle='rgba('+(Math.random()>.5?'255,255,255':'0,0,0')+','+(.08+Math.random()*.24)+')';x.lineWidth=.5+Math.random()*2;x.beginPath();x.moveTo(0,y);x.bezierCurveTo(120,y+Math.random()*10-5,370,y+Math.random()*10-5,512,y);x.stroke()}
+ const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,1);return t
+}
+function makeFeltTexture(){
+ const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,512,512);g.addColorStop(0,'#245443');g.addColorStop(.55,'#163c31');g.addColorStop(1,'#102d26');x.fillStyle=g;x.fillRect(0,0,512,512);
+ for(let i=0;i<5200;i++){const a=.025+Math.random()*.085;x.fillStyle='rgba('+(Math.random()>.5?'171,225,184':'2,18,14')+','+a+')';x.fillRect(Math.random()*512,Math.random()*512,1+Math.random()*2,1)}
+ for(let i=0;i<420;i++){const y=Math.random()*512;x.strokeStyle='rgba(190,226,190,.035)';x.lineWidth=1;x.beginPath();x.moveTo(0,y);x.lineTo(512,y+Math.random()*3);x.stroke()}
+ const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t
+}
 function makeLeatherTexture(){const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');x.fillStyle='#31231d';x.fillRect(0,0,256,256);for(let i=0;i<1700;i++){x.fillStyle=`rgba(220,190,155,${Math.random()*.07})`;x.fillRect(Math.random()*256,Math.random()*256,1+Math.random()*2,1+Math.random()*2)}const t=new THREE.CanvasTexture(c);return t}
 function createRoom(){
- scene=new THREE.Scene();scene.background=new THREE.Color(0x100b08);scene.fog=new THREE.FogExp2(0x100b08,.035);
+ scene=new THREE.Scene();scene.background=new THREE.Color(0x100b08);scene.fog=new THREE.FogExp2(0x100b08,.024);
  camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,90);camera.position.set(0,1.68,3.02);camera.lookAt(0,1.45,-5);scene.add(camera);
- renderer=new THREE.WebGLRenderer({canvas:$('#scene'),antialias:true,alpha:false,powerPreference:'high-performance'});lowPowerMode=(navigator.hardwareConcurrency||4)<=4||innerWidth<720;const lowPower=lowPowerMode;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPower?1.05:1.55));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=!lowPower;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;if('outputEncoding'in renderer)renderer.outputEncoding=THREE.sRGBEncoding;
+ renderer=new THREE.WebGLRenderer({canvas:$('#scene'),antialias:true,alpha:false,powerPreference:'high-performance'});lowPowerMode=(navigator.hardwareConcurrency||4)<=4||innerWidth<720;const lowPower=lowPowerMode;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPower?1.18:1.72));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.04;if('outputEncoding'in renderer)renderer.outputEncoding=THREE.sRGBEncoding;
  // A compact procedural reflection probe gives the copper body readable highlights without downloading a large HDR map.
  try{const envScene=new THREE.Scene();envScene.background=new THREE.Color(0x20150f);const addGlow=(color,pos,scale)=>{const q=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),new THREE.MeshBasicMaterial({color}));q.position.set(...pos);q.scale.set(...scale);envScene.add(q)};addGlow(0xffc080,[0,4,2],[4,.3,.3]);addGlow(0x6c8ca8,[-5,2,-3],[2,3,.2]);addGlow(0xff8f45,[4,2,-4],[2,3,.25]);const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(envScene,.04).texture;pmrem.dispose()}catch(e){}
  clock=new THREE.Clock();
   // Drag to orbit, wheel to zoom. Pointer events work for both mouse and touch.
   const canvas=$('#scene');canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;dragPointer=e.pointerId;lastPointerX=e.clientX;lastPointerY=e.clientY;canvas.setPointerCapture?.(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(dragPointer!==e.pointerId)return;const dx=e.clientX-lastPointerX,dy=e.clientY-lastPointerY;lastPointerX=e.clientX;lastPointerY=e.clientY;orbitYaw-=dx*.006;orbitPitch=Math.max(-.34,Math.min(.24,orbitPitch-dy*.0038))});const endOrbit=e=>{if(dragPointer===e.pointerId)dragPointer=null};canvas.addEventListener('pointerup',endOrbit);canvas.addEventListener('pointercancel',endOrbit);canvas.addEventListener('wheel',e=>{camera.fov=Math.max(58,Math.min(82,camera.fov+e.deltaY*.025));camera.updateProjectionMatrix();e.preventDefault()},{passive:false});
  const hemi=new THREE.HemisphereLight(0x9cacc7,0x241207,1.05);scene.add(hemi);
- const key=new THREE.DirectionalLight(0xffd5a0,2.35);key.position.set(-5,10,7);key.castShadow=!lowPower;key.shadow.mapSize.set(lowPower?512:1536,lowPower?512:1536);key.shadow.camera.left=-12;key.shadow.camera.right=12;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.bias=-.00025;scene.add(key);
+ const key=new THREE.DirectionalLight(0xffd5a0,2.35);key.position.set(-5,10,7);key.castShadow=!lowPower;key.shadow.mapSize.set(lowPower?768:2048,lowPower?768:2048);key.shadow.radius=lowPower?3:5;key.shadow.camera.left=-12;key.shadow.camera.right=12;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.bias=-.00025;scene.add(key);
  const fill=new THREE.PointLight(0xff9348,95,23,2);fill.position.set(1,5,-5);scene.add(fill);
  const cool=new THREE.PointLight(0x557da8,38,18,2);cool.position.set(-7,4,3);scene.add(cool);
- const floorMat=new THREE.MeshStandardMaterial({color:0x382619,roughness:.92,map:makeWoodTexture()});const floor=mesh(scene,new THREE.PlaneGeometry(70,70),floorMat,[0,-.08,0]);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;
+ const floorMap=makeWoodTexture(),floorBump=makeWoodBumpTexture();floorMap.repeat.set(5,5);floorBump.repeat.set(5,5);const floorMat=new THREE.MeshStandardMaterial({color:0x382619,roughness:.88,map:floorMap,bumpMap:floorBump,bumpScale:.045});const floor=mesh(scene,new THREE.PlaneGeometry(70,70),floorMat,[0,-.08,0]);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;
  // Saloon perimeter: dark timber wall and warm vertical posts.
  const wall=mesh(scene,new THREE.CylinderGeometry(15,15,8,48,1,true),mat(0x2a1a12,.95),[0,4,-1]);wall.material.side=THREE.BackSide;wall.receiveShadow=true;
  for(let i=0;i<28;i++){const a=i/28*Math.PI*2,x=Math.cos(a)*14.4,z=Math.sin(a)*14.4-1;const post=mesh(scene,new THREE.BoxGeometry(.22,7.4,.24),mat(i%2?0x59351e:0x422718,.82),[x,3.7,z]);post.rotation.y=-a}
@@ -185,20 +250,76 @@ function createRoom(){
   const neonBlue=mat(0x16a6bd,.28,.48),neonPink=mat(0xd44779,.3,.35);const tealGlow=new THREE.PointLight(0x19b9c5,34,12,2);tealGlow.position.set(-8,3,-8);scene.add(tealGlow);const pinkGlow=new THREE.PointLight(0xd83b82,30,12,2);pinkGlow.position.set(8,3,-9);scene.add(pinkGlow);
   for(let i=0;i<6;i++){const x=-6+i*2.4;const sign=mesh(scene,new THREE.BoxGeometry(1.25,.72,.09),i%2?neonPink:neonBlue,[x,4.45,-13.95]);sign.material.emissive=new THREE.Color(i%2?0x64132f:0x07505c);sign.material.emissiveIntensity=.8;mesh(scene,new THREE.BoxGeometry(1.38,.08,.13),mat(0xb88342,.28,.8),[x,4.05,-13.9])}
   // Round poker table, trim, felt and rivets.
- const wood= new THREE.MeshStandardMaterial({color:0x83562f,roughness:.58,metalness:.06,map:makeWoodTexture()});const brass=mat(0xb88342,.28,.8);
- mesh(scene,new THREE.CylinderGeometry(2.35,2.28,.34,72),wood,[0,1.23,-.4]);mesh(scene,new THREE.CylinderGeometry(2.16,2.16,.035,72),mat(0x244335,.92),[0,1.415,-.4]);mesh(scene,new THREE.TorusGeometry(2.26,.055,12,72),brass,[0,1.42,-.4]).rotation.x=Math.PI/2;
+ const tableMap=makeWoodTexture(),tableBump=makeWoodBumpTexture();const wood=new THREE.MeshStandardMaterial({color:0x83562f,roughness:.5,metalness:.055,map:tableMap,bumpMap:tableBump,bumpScale:.028});const brass=mat(0xb88342,.28,.8);
+ mesh(scene,new THREE.CylinderGeometry(2.35,2.28,.34,72),wood,[0,1.23,-.4]);const feltMap=makeFeltTexture();const feltMat=new THREE.MeshStandardMaterial({color:0x244335,roughness:.96,map:feltMap,bumpMap:makeWoodBumpTexture(),bumpScale:.008});mesh(scene,new THREE.CylinderGeometry(2.16,2.16,.035,72),feltMat,[0,1.415,-.4]);mesh(scene,new THREE.TorusGeometry(2.26,.055,12,72),brass,[0,1.42,-.4]).rotation.x=Math.PI/2;
  mesh(scene,new THREE.CylinderGeometry(.42,.63,1.05,24),mat(0x4c2d1b,.8),[0,.56,-.4]);for(let i=0;i<8;i++){const a=i/8*Math.PI*2;const leg=mesh(scene,new THREE.BoxGeometry(.22,.86,.22),mat(0x57351e,.75),[Math.cos(a)*1.5,.55+0,Math.sin(a)*1.5-.4]);leg.rotation.y=-a}
  for(let i=0;i<48;i++){const a=i/48*Math.PI*2;mesh(scene,new THREE.SphereGeometry(.035,8,6),brass,[Math.cos(a)*2.25,1.42,Math.sin(a)*2.25-.4])}
  cardStack=new THREE.Group();cardStack.position.set(0,1.47,-.4);scene.add(cardStack);
  // Seats and saloon back bar.
  for(let i=0;i<4;i++){const a=i*Math.PI/2+Math.PI/4,x=Math.cos(a)*3.35,z=Math.sin(a)*3.35-.4;const chair=new THREE.Group();chair.position.set(x,0,z);chair.rotation.y=-a+Math.PI;scene.add(chair);mesh(chair,new THREE.BoxGeometry(.85,.16,.82),mat(0x493022,.82),[0,.78,0]);mesh(chair,new THREE.BoxGeometry(.84,1.15,.14),mat(0x3a261c,.85),[0,1.31,-.34]);for(const dx of [-.32,.32])for(const dz of [-.29,.29])rod(chair,[dx,.05,dz],[dx,.8,dz],.055,mat(0x5a3821,.65));}
  for(let i=0;i<5;i++){mesh(scene,new THREE.BoxGeometry(1.1,.2,.45),wood,[-5+i*2.45,1.1,-11.5]);mesh(scene,new THREE.BoxGeometry(.09,1.9,.09),brass,[-5+i*2.45,2,-11.5])}
+ makeSaloonAtmosphere(wood,brass);
  makeLogoSign();makeFirstPersonArms();makeBull();makeDust();worldReady=true;window.addEventListener('resize',resize3d);animate3d();
+}
+function makeSaloonAtmosphere(wood,brass){
+ const darkWood=mat(0x372319,.86),agedWood=mat(0x634027,.78),iron=mat(0x24282b,.42,.72),glass=mat(0x42796e,.18,.42),gold=mat(0xc08b4b,.25,.72);
+ // Back-bar shelves with colored bottles, necks, wax seals and paper labels.
+ for(let row=0;row<2;row++){
+   const y=row===0?1.62:2.52,z=-11.12;
+   mesh(scene,new THREE.BoxGeometry(10.9,.12,.48),darkWood,[0,y-.2,z]);
+   mesh(scene,new THREE.BoxGeometry(10.9,.035,.48),gold,[0,y-.125,z]);
+   for(let i=0;i<13;i++){
+     const x=-4.9+i*.81,col=[0x6d8a4b,0x8b4930,0x334d62,0xb18a42,0x4a715c][i%5],bmat=mat(col,.2,.26);
+     const body=mesh(scene,new THREE.CylinderGeometry(.085,.105,.34,18),bmat,[x,y,z+.04]);
+     body.rotation.z=(i%3-1)*.025;
+     mesh(scene,new THREE.CylinderGeometry(.045,.055,.12,14),bmat,[x,y+.225,z+.04]);
+     mesh(scene,new THREE.CylinderGeometry(.052,.052,.035,14),iron,[x,y+.3,z+.04]);
+     const label=mesh(scene,new THREE.PlaneGeometry(.12,.105),mat(i%2?0xe4d5b8:0xd9c49b,.9),[x,y,z+.145]);
+     label.rotation.y=0;
+   }
+ }
+ // Brass foot rail and worn bar counter details.
+ const rail=mesh(scene,new THREE.CylinderGeometry(.035,.035,10.8,14),gold,[0,.38,-10.92]);rail.rotation.z=Math.PI/2;
+ for(let i=0;i<8;i++){const x=-4.4+i*1.25;
+   const glassCup=mesh(scene,new THREE.CylinderGeometry(.075,.06,.22,20,1,true),glass,[x,1.29,-10.7]);
+   mesh(scene,new THREE.CylinderGeometry(.075,.075,.018,20),mat(0x8caa9b,.28,.4),[x,1.18,-10.7]);
+   const rim=mesh(scene,new THREE.TorusGeometry(.075,.008,6,20),gold,[x,1.405,-10.7]);rim.rotation.x=Math.PI/2;
+ }
+ // Weathered barrels and iron hoops around the perimeter.
+ for(const side of [-1,1])for(let i=0;i<3;i++){
+   const x=side*(10.1+(i%2)*.45),z=-6.2+i*4.25;
+   const barrel=mesh(scene,new THREE.CylinderGeometry(.48,.55,1.12,24,2),agedWood,[x,.57,z]);
+   mesh(scene,new THREE.CylinderGeometry(.49,.49,.035,24),darkWood,[x,1.14,z]);
+   for(const y of [.25,.82]){const hoop=mesh(scene,new THREE.TorusGeometry(.49,.035,8,28),iron,[x,y,z]);hoop.rotation.x=Math.PI/2;}
+   for(let stave=0;stave<12;stave++){const a=stave/12*Math.PI*2;const slat=mesh(scene,new THREE.BoxGeometry(.035,.98,.07),darkWood,[x+Math.cos(a)*.51,.57,z+Math.sin(a)*.51]);slat.rotation.y=-a;}
+   for(let n=0;n<4;n++)mesh(scene,new THREE.SphereGeometry(.025,8,6),gold,[x-.16+n*.105,1.16,z+.15]);
+ }
+ // Framed saloon mirrors and old notices on the timber side walls.
+ for(const side of [-1,1])for(let i=0;i<2;i++){
+   const x=side*(13.25-i*.25),z=-5.6+i*5.5;
+   const frame=mesh(scene,new THREE.BoxGeometry(.12,1.72,1.34),gold,[x,3.15,z]);frame.rotation.y=side*Math.PI/2;
+   const mirror=mesh(scene,new THREE.PlaneGeometry(1.18,1.52),new THREE.MeshStandardMaterial({color:0x53636a,metalness:.82,roughness:.18,envMapIntensity:.8,side:THREE.DoubleSide}),[x-side*.071,3.15,z]);
+   mirror.rotation.y=side*Math.PI/2;
+   for(let j=0;j<4;j++)mesh(scene,new THREE.SphereGeometry(.035,10,8),gold,[x-side*.09,2.46+j*.46,z+.49]);
+ }
+ // Soft amber wall sconces add warm pools rather than flat global illumination.
+ for(const side of [-1,1])for(let i=0;i<2;i++){
+   const x=side*12.8,z=-8+i*8;
+   const bracket=mesh(scene,new THREE.BoxGeometry(.12,.32,.12),iron,[x,3.65,z]);bracket.rotation.z=.18;
+   const glow=mesh(scene,new THREE.SphereGeometry(.11,14,10),new THREE.MeshBasicMaterial({color:0xffc16f}),[x-side*.13,3.48,z]);
+   const light=new THREE.PointLight(0xffb65d,lowPowerMode?12:19,6,2);light.position.set(x-side*.18,3.5,z);scene.add(light);
+ }
+ // Rug edge and concentric stitched rings under the table zone.
+ const rug=new THREE.Mesh(new THREE.RingGeometry(3.85,4.65,96),new THREE.MeshStandardMaterial({color:0x42252a,roughness:.94,side:THREE.DoubleSide}));
+ rug.rotation.x=-Math.PI/2;rug.position.set(0,-.055,-.4);rug.receiveShadow=true;scene.add(rug);
+ for(const radius of [3.9,4.58]){const stitchRing=mesh(scene,new THREE.TorusGeometry(radius,.018,6,96),gold,[0,-.042,-.4]);stitchRing.rotation.x=Math.PI/2;}
+ // Small riveted corner plates and floor inlays give the timber some scale.
+ for(let i=0;i<16;i++){const a=i/16*Math.PI*2,x=Math.cos(a)*13.9,z=Math.sin(a)*13.9-1;const plate=mesh(scene,new THREE.BoxGeometry(.44,.12,.16),iron,[x,.18,z]);plate.rotation.y=-a;for(let k=0;k<2;k++)mesh(scene,new THREE.SphereGeometry(.022,8,6),gold,[x+(k-.5)*.22,.25,z]);}
 }
 function makeLogoSign(){const c=document.createElement('canvas');c.width=1200;c.height=300;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,1200,300);g.addColorStop(0,'#071b24');g.addColorStop(.5,'#142c31');g.addColorStop(1,'#321522');x.fillStyle=g;x.fillRect(0,0,1200,300);x.strokeStyle='#d9a95d';x.lineWidth=14;x.strokeRect(14,14,1172,272);x.strokeStyle='#24b7bb';x.lineWidth=4;x.strokeRect(34,34,1132,232);x.textAlign='center';x.textBaseline='middle';x.font='900 138px Impact,Arial Black,sans-serif';x.shadowColor='#29c5c7';x.shadowBlur=28;x.fillStyle='#f2d18a';x.fillText('AGROBULL',600,151);x.shadowBlur=0;x.font='700 28px Arial,sans-serif';x.fillStyle='#6fe0d8';x.fillText('3D ONLINE RODEO',600,236);const tex=new THREE.CanvasTexture(c);tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());const panel=mesh(scene,new THREE.BoxGeometry(7.2,1.9,.16),mat(0x101b20,.32,.65),[0,4.25,-13.78]);panel.material.emissive=new THREE.Color(0x06191d);panel.material.emissiveIntensity=.38;const face=new THREE.Mesh(new THREE.PlaneGeometry(6.95,1.72),new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}));face.position.set(0,4.25,-13.68);scene.add(face)}
 function makeFirstPersonArms(){const sleeve=mat(0x174f57,.72,.05),cuff=mat(0x17242c,.55,.12),skin=mat(0xc58e6b,.78);for(const side of [-1,1]){const arm=sphere(camera,sleeve,[side*.52,-.53,-1.24],[.22,.19,.48],24);arm.rotation.z=side*.23;const band=sphere(camera,cuff,[side*.42,-.48,-.91],[.16,.13,.11],18);band.rotation.z=side*.2;sphere(camera,skin,[side*.35,-.43,-.82],[.115,.09,.12],18)}}
 function update3dPile(count){if(!cardStack)return;while(cardStack.children.length){const o=cardStack.children[0];cardStack.remove(o);o.geometry?.dispose?.();if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material?.dispose?.()}const n=Math.min(18,Math.max(0,count|0));for(let i=0;i<n;i++){const card=mesh(cardStack,new THREE.BoxGeometry(.52,.025,.72),i%2?mat(0x6c1f18,.55):mat(0x8c3022,.48),[(i%5-2)*.045,i*.018,((i%3)-1)*.035]);card.rotation.y=i*.17;card.castShadow=false}}
-function makeDust(){const count=innerWidth<720?130:300;const g=new THREE.BufferGeometry(),positions=new Float32Array(count*3);for(let i=0;i<count;i++){positions[i*3]=(Math.random()-.5)*22;positions[i*3+1]=Math.random()*7;positions[i*3+2]=(Math.random()-.5)*22}g.setAttribute('position',new THREE.BufferAttribute(positions,3));dust=new THREE.Points(g,new THREE.PointsMaterial({color:0xf6c987,size:innerWidth<720?.025:.035,transparent:true,opacity:.32,depthWrite:false}));scene.add(dust)}
+function makeDust(){const count=innerWidth<720?260:620;const g=new THREE.BufferGeometry(),positions=new Float32Array(count*3);for(let i=0;i<count;i++){positions[i*3]=(Math.random()-.5)*22;positions[i*3+1]=Math.random()*7;positions[i*3+2]=(Math.random()-.5)*22}g.setAttribute('position',new THREE.BufferAttribute(positions,3));dust=new THREE.Points(g,new THREE.PointsMaterial({color:0xf6c987,size:innerWidth<720?.014:.022,transparent:true,opacity:.2,depthWrite:false}));scene.add(dust)}
 function makeBull(){
  const platformMat=mat(0x24272a,.38,.82),railMat=mat(0x6d777b,.3,.82);mesh(scene,new THREE.CylinderGeometry(2.45,2.58,.3,64),platformMat,[0,.1,-6.6]);const rim=mesh(scene,new THREE.TorusGeometry(2.42,.075,12,64),mat(0xb8733e,.24,.86),[0,.27,-6.6]);rim.rotation.x=Math.PI/2;for(let i=0;i<12;i++){const a=i/12*Math.PI*2,x=Math.cos(a)*2.18,z=-6.6+Math.sin(a)*2.18;rod(scene,[x,.28,z],[x,1.15,z],.045,railMat,.045)}for(const y of [.55,1.03]){const rail=mesh(scene,new THREE.TorusGeometry(2.18,.045,8,64),railMat,[0,y,-6.6]);rail.rotation.x=Math.PI/2}
  const root=new THREE.Group();root.position.set(0,.18,-6.6);scene.add(root);const body=new THREE.Group();root.add(body);
