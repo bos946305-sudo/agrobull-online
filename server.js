@@ -359,6 +359,17 @@ io.on('connection', socket => {
     game.lastPlay = { playerId: player.id, cards };
     game.reveal = null;
     game.message = `${player.name} выложил ${cards.length} карт рубашкой вверх.`;
+    // In a 1-v-1 endgame, emptying your hand triggers an automatic challenge.
+    // The only opponent checks the final play: the liar rides, otherwise the challenger rides.
+    const survivors = activePlayers(room);
+    if (player.hand.length === 0 && survivors.length === 2) {
+      const automaticCaller = survivors.find(p => p.id !== player.id && p.hand.length > 0);
+      if (automaticCaller) {
+        game.currentId = automaticCaller.id;
+        resolveCall(room, automaticCaller);
+        return;
+      }
+    }
     const next = nextPlayerWithCards(room, player.id);
     if (!next) {
       finishGame(room, player.id);
