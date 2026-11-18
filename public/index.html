@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#100d0b">
+<title>AGROBULL — 3D Online</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.128.0/three.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root{color-scheme:dark;--gold:#d5a45e;--gold2:#f0cb8a;--red:#ba3c2f;--panel:rgba(22,17,14,.88);--line:rgba(220,176,111,.32);--muted:#b8a895;--cream:#f1e5d0}
+*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#100d0b;color:var(--cream);font-family:Inter,system-ui,sans-serif}button,input{font:inherit}button{cursor:pointer;color:inherit}button:disabled{opacity:.35;cursor:not-allowed}
+#scene{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0;touch-action:none}#vignette{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 48%,transparent 42%,rgba(0,0,0,.58) 100%)}
+#topbar{position:fixed;z-index:5;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:linear-gradient(180deg,rgba(9,7,6,.86),transparent);pointer-events:none}
+.brand{font:800 25px/1 'Barlow Condensed',sans-serif;letter-spacing:4px;color:var(--gold2);text-shadow:0 2px 14px #9a5e23}.brand small{display:block;margin-top:4px;font:600 9px Inter,sans-serif;letter-spacing:3px;color:#c3ae95;text-align:center}
+.topright{display:flex;align-items:center;gap:9px;pointer-events:auto}.pill{display:flex;align-items:center;gap:7px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:rgba(14,10,8,.72);backdrop-filter:blur(12px);font-size:12px;font-weight:700;box-shadow:0 8px 24px #0005}.pill b{color:var(--gold2);font-variant-numeric:tabular-nums}.iconbtn{width:38px;height:38px;border:1px solid var(--line);border-radius:50%;background:rgba(14,10,8,.75);font-size:17px}
+#leftpanel{position:fixed;z-index:4;left:16px;top:88px;display:flex;flex-direction:column;gap:8px;max-width:210px;pointer-events:none}.playerTag{width:190px;padding:9px 11px;border:1px solid rgba(220,176,111,.22);border-radius:12px;background:rgba(16,12,9,.68);backdrop-filter:blur(12px);box-shadow:0 6px 20px #0005;display:flex;align-items:center;gap:9px;transition:.25s}.playerTag.active{border-color:var(--gold2);box-shadow:0 0 0 1px #d8a65c55,0 0 22px #d29a4a2b}.playerTag.dead{opacity:.3;filter:grayscale(1)}.playerTag .face{font-size:22px}.playerTag .pmeta{min-width:0;flex:1}.playerTag strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.playerTag small{display:block;margin-top:3px;font-size:9px;color:var(--muted)}.playerTag .rides{font-size:10px;color:var(--gold2);white-space:nowrap}
+#centerinfo{position:fixed;z-index:4;top:76px;left:50%;transform:translateX(-50%);width:min(460px,55vw);text-align:center;pointer-events:none}.glass{padding:10px 18px;border:1px solid var(--line);border-radius:15px;background:rgba(14,10,8,.68);backdrop-filter:blur(14px);box-shadow:0 10px 30px #0005}.cropname{font:700 20px 'Barlow Condensed',sans-serif;letter-spacing:1.5px;color:var(--gold2);text-transform:uppercase}.statusline{margin-top:4px;font-size:11px;color:#d5c4ac;line-height:1.45}.lastcards{margin-top:7px;font-size:11px;color:#e8d6bd}
+#bottom{position:fixed;z-index:5;left:50%;bottom:12px;transform:translateX(-50%);width:min(760px,calc(100vw - 30px));display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:none}.hand{display:flex;justify-content:center;align-items:flex-end;gap:clamp(4px,1vw,12px);min-height:104px;pointer-events:auto}.playingcard{width:clamp(55px,7vw,82px);height:clamp(78px,10vw,114px);border:2px solid #d7c4a7;border-radius:9px;background:linear-gradient(145deg,#f7efd9,#d9c7a7);color:#38291e;box-shadow:0 8px 22px #0009;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:8px 5px;position:relative;transition:transform .15s,border-color .15s}.playingcard .sym{font-size:clamp(24px,3.4vw,38px);line-height:1}.playingcard .label{font-size:8px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}.playingcard .corner{align-self:flex-start;font-size:10px;font-weight:800}.playingcard.selected{transform:translateY(-13px);border-color:#dca750;box-shadow:0 0 0 2px #dca75055,0 12px 28px #000b}.playingcard.bull{background:linear-gradient(145deg,#e8bd69,#ae6b2e);border-color:#f0d19b}.controls{display:flex;justify-content:center;gap:8px;pointer-events:auto}.action{min-width:136px;padding:11px 18px;border-radius:10px;border:1px solid #bd8c4e;background:linear-gradient(180deg,#a67539,#67451f);box-shadow:0 4px 0 #372310,0 8px 20px #0006;font-weight:800;font-size:11px;letter-spacing:1px;text-transform:uppercase}.action.danger{border-color:#db7160;background:linear-gradient(180deg,#b94b3d,#70251f);box-shadow:0 4px 0 #3f1713,0 8px 20px #0006}.action.subtle{background:rgba(25,20,16,.88);border-color:var(--line);box-shadow:0 4px 0 #080605}.hint{min-height:15px;text-align:center;font-size:10px;color:#d6c5ad;text-shadow:0 2px 4px #000}
+#toast{position:fixed;z-index:20;left:50%;top:22%;transform:translate(-50%,-10px);padding:11px 18px;border-radius:12px;border:1px solid var(--gold);background:rgba(14,10,8,.93);color:var(--gold2);font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:.2s;max-width:min(88vw,500px);text-align:center}#toast.show{opacity:1;transform:translate(-50%,0)}
+.overlay{position:fixed;z-index:10;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(4,3,3,.62);backdrop-filter:blur(8px);overflow:auto}.modal{width:min(540px,100%);max-height:min(90vh,900px);overflow:auto;border:1px solid rgba(220,176,111,.38);border-radius:20px;background:linear-gradient(145deg,rgba(37,27,20,.97),rgba(13,10,8,.97));box-shadow:0 25px 90px #000c;padding:25px}.modal.wide{width:min(780px,100%)}.modal h1{margin:0 0 8px;text-align:center;font:800 44px/1 'Barlow Condensed',sans-serif;letter-spacing:5px;color:var(--gold2);text-shadow:0 3px 22px #a66c2f66}.eyebrow{text-align:center;font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#bca68b}.intro{text-align:center;color:#d2c0a6;font-size:12px;line-height:1.6;margin:13px auto 20px;max-width:410px}.field{display:flex;flex-direction:column;gap:6px;margin:10px 0}.field label{font-size:10px;color:#cdbb9e;letter-spacing:1px;text-transform:uppercase}.field input{width:100%;padding:12px 13px;border:1px solid var(--line);border-radius:9px;background:#100c09;color:#f3e3c3;outline:none}.field input:focus{border-color:var(--gold)}.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}.primary{padding:12px 15px;border:1px solid #d8aa69;border-radius:10px;background:linear-gradient(180deg,#c08a48,#805323);color:#fff5e4;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;box-shadow:0 4px 0 #3f2915}.secondary{padding:11px 14px;border:1px solid var(--line);border-radius:10px;background:rgba(15,11,9,.8);color:#e0d1bc;font-size:11px;font-weight:700}.dangertext{color:#f38d7c}.sectiontitle{margin:17px 0 8px;font:700 18px 'Barlow Condensed',sans-serif;letter-spacing:1px;color:var(--gold2)}.chargrid,.skinGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.choice{display:flex;gap:10px;align-items:center;text-align:left;padding:10px;border:1px solid var(--line);border-radius:11px;background:rgba(9,7,6,.48);min-height:67px}.choice.selected{border-color:var(--gold2);background:#8b61252b;box-shadow:inset 0 0 0 1px #d8a65c55}.choice .portrait{font-size:29px}.choice b{display:block;font-size:11px}.choice small{display:block;margin-top:4px;font-size:9px;color:var(--muted);line-height:1.35}.roomcode{font:800 34px 'Barlow Condensed',sans-serif;letter-spacing:8px;color:var(--gold2);text-align:center;padding:10px}.roomplayer{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;background:#09070666;margin:6px 0}.roomplayer span{font-size:20px}.roomplayer strong{font-size:11px;flex:1}.roomplayer small{font-size:9px;color:var(--muted)}.statusdot{width:7px;height:7px;border-radius:50%;background:#6ab17b}.statusdot.off{background:#b65c4f}.skinCard{border:1px solid var(--line);border-radius:12px;background:#0d0908;padding:11px;text-align:left}.skinCard.selected{border-color:var(--gold2);box-shadow:0 0 0 1px #d8a65c55}.skinSwatch{height:48px;border-radius:8px;margin-bottom:8px;box-shadow:inset 0 0 20px #fff2}.skinCard b{display:block;font-size:11px}.skinCard small{display:block;margin-top:4px;font-size:9px;color:var(--muted)}.skinCard .buy{margin-top:8px;color:var(--gold2);font-size:10px;font-weight:800}.footnote{margin-top:13px;font-size:9px;line-height:1.55;color:#a8957c;text-align:center}
+#roomView,#garageView,#resultView{display:none}#gameUI{display:none}#rotate{display:none;position:fixed;inset:0;z-index:99;align-items:center;justify-content:center;text-align:center;background:#100d0b;color:var(--gold2);font:700 23px 'Barlow Condensed',sans-serif;letter-spacing:2px;padding:30px}
+@media (orientation:portrait) and (max-width:800px){#rotate{display:flex}#topbar,#leftpanel,#centerinfo,#bottom{display:none!important}}
+@media(max-width:700px){#topbar{padding:10px}.brand{font-size:21px}.pill{padding:7px 9px;font-size:10px}#leftpanel{left:8px;top:68px}.playerTag{width:140px;padding:7px}.playerTag strong{font-size:10px}#centerinfo{top:66px;width:52vw}.glass{padding:7px 10px}.cropname{font-size:16px}.statusline{font-size:9px}.hand{min-height:83px}.playingcard{width:52px;height:75px}.action{min-width:110px;padding:10px 12px}.modal{padding:18px}.modal h1{font-size:38px}}
+@media(max-height:480px) and (orientation:landscape){#leftpanel{top:57px;gap:5px}.playerTag{padding:5px 8px}.playerTag .face{font-size:17px}#centerinfo{top:55px}.hand{min-height:72px}.playingcard{height:67px;width:48px}.playingcard .sym{font-size:22px}.action{padding:8px 12px}}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas><div id="vignette"></div><div id="rotate">ПОВЕРНИ ТЕЛЕФОН ГОРИЗОНТАЛЬНО<br><small style="display:block;font:11px Inter;margin-top:10px;letter-spacing:0;color:#c5af91">AGROBULL создан для альбомного режима</small></div>
+<div id="topbar"><div class="brand">AGROBULL<small>3D ONLINE RODEO</small></div><div class="topright"><div class="pill">🪙 <b id="coinCount">250</b></div><div class="pill" id="roomPill" style="display:none">КОМНАТА <b id="roomPillCode">----</b></div><button class="iconbtn" id="helpBtn" title="Правила">?</button></div></div>
+<div id="leftpanel"></div>
+<div id="centerinfo"><div class="glass"><div class="cropname" id="cropName">АГРОБАР</div><div class="statusline" id="statusLine">Создай комнату или присоединись к друзьям</div><div class="lastcards" id="lastCards"></div></div></div>
+<div id="bottom"><div class="hand" id="hand"></div><div class="controls"><button class="action" id="playBtn" disabled>Выложить</button><button class="action danger" id="callBtn" disabled>Врёшь!</button></div><div class="hint" id="hint">Выбери до 3 карт и сделай ход</div></div>
+<div id="toast"></div>
+<div class="overlay" id="mainOverlay"><div class="modal" id="homeView">
+  <div class="eyebrow">Механический бык • Блеф • Онлайн</div><h1>AGROBULL</h1><p class="intro">Собери друзей за одним столом. Блефуй, раскрывай чужие карты и удержись на медном быке. До четырёх игроков в одной комнате.</p>
+  <div class="field"><label for="playerName">Твоё имя</label><input id="playerName" maxlength="18" placeholder="Например, Хайзенберг"></div>
+  <div class="sectiontitle">Выбери персонажа</div><div class="chargrid" id="charGrid"></div>
+  <div class="row" style="margin-top:16px"><button class="primary" id="createBtn">Создать комнату</button><button class="secondary" id="garageBtn">🧥 Гардероб</button></div>
+  <div class="field" style="margin-top:15px"><label for="roomCodeInput">Код комнаты друга</label><div class="row"><input id="roomCodeInput" maxlength="4" placeholder="AB12" style="text-transform:uppercase;letter-spacing:4px;text-align:center;font-weight:800"><button class="primary" id="joinBtn" style="max-width:145px">Войти</button></div></div>
+  <div class="footnote" id="connectionStatus">Подключаемся к серверу…</div>
+</div>
+<div class="modal" id="roomView">
+  <div class="eyebrow">Частная игровая комната</div><h1>ЛОББИ</h1><div class="roomcode" id="roomCodeBig">----</div><p class="intro">Отправь код друзьям. Они должны выбрать персонажа и нажать «Готов».</p>
+  <div id="roomPlayers"></div><div class="row" style="margin-top:16px"><button class="secondary" id="leaveBtn">Выйти</button><button class="primary" id="readyBtn">Я готов</button><button class="primary" id="startBtn" style="display:none">Начать игру</button></div>
+  <div class="footnote">Нужно от 2 до 4 игроков. Хост запускает игру, когда все готовы.</div>
+</div>
+<div class="modal" id="garageView">
+  <div class="eyebrow">Персонализация персонажа</div><h1>ГАРДЕРОБ</h1><p class="intro">Открывай костюмы за игровые монеты. Купленные скины останутся на этом устройстве.</p><div class="pill" style="justify-content:center;margin-bottom:13px">Баланс: 🪙 <b id="garageCoins">250</b></div><div class="skinGrid" id="skinGrid"></div><button class="secondary" id="garageBack" style="width:100%;margin-top:13px">Назад</button><div class="footnote">Покупки пока хранятся локально в браузере. Для общего аккаунта и защищённого баланса нужна база данных.</div>
+</div>
+<div class="modal" id="resultView"><div class="eyebrow">Раунд завершён</div><h1 id="resultTitle">ПОБЕДА</h1><p class="intro" id="resultText"></p><div class="pill" style="justify-content:center">Награда: 🪙 <b id="rewardText">+0</b></div><button class="primary" id="resultBack" style="width:100%;margin-top:17px">В меню</button></div>
+</div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const characters = [
+  {id:'walter',name:'Химик',sub:'Лысая голова, очки и бородка',emoji:'🧪'},
+  {id:'saul',name:'Адвокат',sub:'Яркий костюм и уложенные волосы',emoji:'⚖️'},
+  {id:'jesse',name:'Напарник',sub:'Уличный стиль и худи',emoji:'🧢'},
+  {id:'gus',name:'Босс',sub:'Строгий костюм и тонкие усы',emoji:'🕴️'}
+];
+const skins = [
+  {id:'classic',name:'Бармен',price:0,desc:'Классический рабочий образ',color:'#60402b',owned:true},
+  {id:'hazmat',name:'Жёлтый химкостюм',price:120,desc:'Защитный комбинезон',color:'linear-gradient(120deg,#e1bd35,#6d642c)'},
+  {id:'lawyer',name:'Золотой адвокат',price:180,desc:'Бордовый пиджак и золото',color:'linear-gradient(120deg,#8b3551,#d6a452)'},
+  {id:'neon',name:'Неоновый гонщик',price:260,desc:'Бирюза и светящиеся детали',color:'linear-gradient(120deg,#0c8a8e,#342b79)'},
+  {id:'copper',name:'Медный рейдер',price:340,desc:'Броня в цвет механического быка',color:'linear-gradient(120deg,#a45c31,#4b2920)'},
+  {id:'midnight',name:'Ночной босс',price:420,desc:'Чёрный костюм с серебром',color:'linear-gradient(120deg,#171b25,#69727e)'}
+];
+const defaultProfile = {name:'Игрок',character:'walter',skin:'classic',coins:250,owned:['classic']};
+function loadProfile(){try{return {...defaultProfile,...JSON.parse(localStorage.getItem('agrobull_profile_v2')||'{}')}}catch(_){return {...defaultProfile}}}
+let profile = loadProfile();
+if(!Array.isArray(profile.owned))profile.owned=['classic'];
+let socket = null, selfId = null, room = null, lobby = null, gameState = null, selected = new Set(), lastHandKey = '', paidGames = [];
+try{paidGames=JSON.parse(localStorage.getItem('agrobull_paid_games')||'[]')}catch(_){paidGames=[]}
+function saveProfile(){localStorage.setItem('agrobull_profile_v2',JSON.stringify(profile));updateCoins()}
+function updateCoins(){$('#coinCount').textContent=profile.coins;$('#garageCoins').textContent=profile.coins}
+function notify(message){const t=$('#toast');t.textContent=message;t.classList.add('show');clearTimeout(notify.timer);notify.timer=setTimeout(()=>t.classList.remove('show'),2600)}
+function currentCharacter(){return characters.find(c=>c.id===profile.character)||characters[0]}
+function renderCharacters(){const root=$('#charGrid');root.innerHTML='';characters.forEach(c=>{const b=document.createElement('button');b.className='choice'+(profile.character===c.id?' selected':'');b.innerHTML=`<span class="portrait">${c.emoji}</span><span><b>${c.name}</b><small>${c.sub}</small></span>`;b.onclick=()=>{profile.character=c.id;saveProfile();renderCharacters();};root.append(b)})}
+function renderGarage(){const root=$('#skinGrid');root.innerHTML='';skins.forEach(s=>{const owned=profile.owned.includes(s.id),active=profile.skin===s.id,b=document.createElement('button');b.className='skinCard'+(active?' selected':'');b.innerHTML=`<div class="skinSwatch" style="background:${s.color}"></div><b>${s.name}</b><small>${s.desc}</small><div class="buy">${active?'НАДЕТО':owned?'ВЫБРАТЬ':`🪙 ${s.price} — КУПИТЬ`}</div>`;b.onclick=()=>{if(owned){profile.skin=s.id;saveProfile();renderGarage()}else if(profile.coins>=s.price){profile.coins-=s.price;profile.owned.push(s.id);profile.skin=s.id;saveProfile();renderGarage();notify('Новый скин открыт!')}else notify('Не хватает монет. Побеждай в матчах!')};root.append(b)})}
+function showView(name){['homeView','roomView','garageView','resultView'].forEach(id=>$('#'+id).style.display=id===name?'block':'none');$('#mainOverlay').style.display='flex'}
+function hideOverlay(){$('#mainOverlay').style.display='none'}
+renderCharacters();renderGarage();updateCoins();$('#playerName').value=profile.name;
+$('#playerName').addEventListener('change',()=>{profile.name=$('#playerName').value.trim().slice(0,18)||'Игрок';saveProfile()});
+$('#garageBtn').onclick=()=>{renderGarage();showView('garageView')};$('#garageBack').onclick=()=>showView(room?'roomView':'homeView');
+
+function connect(){
+ if(typeof io!=='function'){$('#connectionStatus').textContent='Не удалось загрузить Socket.IO. Запусти проект через npm start.';return}
+ socket=io({transports:['websocket','polling']});
+ socket.on('connect',()=>{$('#connectionStatus').textContent='Сервер подключён. Можно создавать комнаты.';$('#connectionStatus').style.color='#8cc99b'});
+ socket.on('disconnect',()=>{$('#connectionStatus').textContent='Связь с сервером потеряна. Переподключаемся…';$('#connectionStatus').style.color='#e18b73'});
+ socket.on('connect_error',()=>{$('#connectionStatus').textContent='Нет соединения с сервером. Проверь запуск или ссылку сайта.';$('#connectionStatus').style.color='#e18b73'});
+ socket.on('joined',data=>{selfId=data.playerId;room=data.roomCode;$('#roomPill').style.display='flex';$('#roomPillCode').textContent=room;$('#roomCodeBig').textContent=room});
+ socket.on('lobby',data=>{lobby=data;room=data.code;$('#roomPill').style.display='flex';$('#roomPillCode').textContent=room;$('#roomCodeBig').textContent=room;renderLobby();if(!gameState||gameState.phase==='lobby')showView('roomView')});
+ socket.on('gameState',state=>{gameState=state;renderGameState(state);if(state.phase==='playing'||state.phase==='rodeo')hideOverlay();if(state.phase==='finished')showResult(state)});
+ socket.on('roomError',e=>notify(e.message||'Ошибка комнаты'));
+}
+connect();
+function emitProfile(){profile.name=$('#playerName').value.trim().slice(0,18)||'Игрок';saveProfile();return {name:profile.name,character:profile.character,skin:profile.skin}}
+$('#createBtn').onclick=()=>{if(!socket?.connected)return notify('Нет соединения с сервером');socket.emit('createRoom',emitProfile())};
+$('#joinBtn').onclick=()=>{if(!socket?.connected)return notify('Нет соединения с сервером');const code=$('#roomCodeInput').value.trim().toUpperCase();if(code.length!==4)return notify('Введи код из 4 символов');socket.emit('joinRoom',{...emitProfile(),code})};
+$('#roomCodeInput').addEventListener('input',e=>e.target.value=e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,4));
+$('#readyBtn').onclick=()=>{const me=lobby?.players.find(p=>p.id===selfId);if(me)socket.emit('setReady',!me.ready)};
+$('#startBtn').onclick=()=>socket.emit('startGame');
+$('#leaveBtn').onclick=()=>{socket.emit('leaveRoom');room=null;lobby=null;gameState=null;selfId=null;$('#roomPill').style.display='none';$('#leftpanel').innerHTML='';showView('homeView')};
+function renderLobby(){if(!lobby)return;$('#roomPlayers').innerHTML='';lobby.players.forEach(p=>{const ch=characters.find(c=>c.id===p.character)||characters[0],row=document.createElement('div');row.className='roomplayer';row.innerHTML=`<span>${ch.emoji}</span><strong>${escapeHtml(p.name)} ${p.isHost?'👑':''}</strong><small>${p.ready?'ГОТОВ':'ОЖИДАЕТ'}</small><i class="statusdot ${p.connected?'':'off'}"></i>`;$('#roomPlayers').append(row)});const me=lobby.players.find(p=>p.id===selfId);$('#readyBtn').textContent=me?.ready?'НЕ ГОТОВ':'Я ГОТОВ';$('#readyBtn').style.display=me?.isHost?'none':'block';$('#startBtn').style.display=me?.isHost?'block':'none';$('#startBtn').disabled=!lobby.canStart;$('#startBtn').textContent=lobby.canStart?'НАЧАТЬ ИГРУ':'ЖДЁМ ИГРОКОВ';}
+function escapeHtml(str){return String(str).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+$('#helpBtn').onclick=()=>notify('Выложи 1–3 карты. Следующий игрок может продолжить или нажать «Врёшь!». Кто проиграл спор — едет на быке. Бык — джокер.');
+
+function renderGameState(state){
+ const p=state.players||[],me=p.find(x=>x.id===selfId),isMyTurn=state.currentId===selfId&&state.phase==='playing';
+ $('#leftpanel').innerHTML='';p.forEach(pl=>{const ch=characters.find(c=>c.id===pl.character)||characters[0],tag=document.createElement('div');tag.className='playerTag'+(pl.id===state.currentId?' active':'')+(!pl.alive?' dead':'');tag.innerHTML=`<span class="face">${ch.emoji}</span><span class="pmeta"><strong>${escapeHtml(pl.name)} ${pl.id===selfId?'(ты)':''}</strong><small>${pl.alive?`${pl.handCount} карт • ${pl.rides}/${pl.fallAt} выездов`:'ВЫБЫЛ'}</small></span><span class="rides">${pl.id===state.currentId?'ХОД':''}</span>`;$('#leftpanel').append(tag)});
+ $('#cropName').textContent=state.table?`${state.table.icon} ${state.table.name}`:`РАУНД ${state.round||1}`;
+ $('#statusLine').textContent=state.message||'';
+ const last=state.lastPlay,actor=last&&p.find(x=>x.id===last.playerId);$('#lastCards').textContent=last?`${actor?.name||'Игрок'} выложил ${last.count} карт${last.revealed?' — '+(last.cards||[]).map(c=>c.icon).join(' '):' рубашкой вверх'}`:'';
+ const hand=me?.hand||[];const handKey=`${state.round}|${hand.map(c=>c.id).join(',')}`;if(handKey!==lastHandKey){selected.clear();lastHandKey=handKey}
+ $('#hand').innerHTML='';hand.forEach((card,index)=>{const b=document.createElement('button');b.className='playingcard'+(card.id==='b'?' bull':'')+(selected.has(index)?' selected':'');b.innerHTML=`<span class="corner">${card.id==='b'?'★':'AG'}</span><span class="sym">${card.icon}</span><span class="label">${card.name}</span>`;b.onclick=()=>{if(!isMyTurn)return;if(selected.has(index))selected.delete(index);else if(selected.size<3)selected.add(index);renderGameState({...state,players:state.players});};$('#hand').append(b)});
+ $('#playBtn').disabled=!isMyTurn||selected.size===0;$('#callBtn').disabled=!isMyTurn||!last;
+ $('#hint').textContent=isMyTurn?(last?'Твой ход: продолжай или проверь предыдущий блеф':'Твой ход: выбери 1–3 карты'):(state.phase==='rodeo'?'Смотри на быка…':'Ожидание хода соперника');
+ if(state.phase==='rodeo'&&state.rodeo){const loser=p.find(x=>x.id===state.rodeo.playerId);$('#statusLine').textContent=`${loser?.name||'Игрок'} на быке — уровень ${state.rodeo.level}/${state.rodeo.threshold}`}
+ if(state.phase==='playing'&&state.currentId===selfId)$('#hint').textContent=last?'Проверить блеф или выложить свои карты':'Твой ход — выложи карты';
+ if(state.phase==='finished'){$('#hint').textContent='Матч завершён'}
+}
+$('#playBtn').onclick=()=>{if(!selected.size)return;socket.emit('playCards',{indexes:[...selected]});selected.clear()};
+$('#callBtn').onclick=()=>{socket.emit('callBluff');selected.clear()};
+function showResult(state){const winner=state.players.find(p=>p.id===state.winnerId),won=state.winnerId===selfId;let reward=0;if(!paidGames.includes(state.gameId)){reward=won?80:15;profile.coins+=reward;saveProfile();paidGames.push(state.gameId);paidGames=paidGames.slice(-60);localStorage.setItem('agrobull_paid_games',JSON.stringify(paidGames))}$('#resultTitle').textContent=won?'ТЫ — ХОЗЯИН АГРОБАРА':'МАТЧ ЗАВЕРШЁН';$('#resultText').textContent=won?'Ты пережил все выезды и покорил медного быка.':`Победитель: ${winner?.name||'неизвестен'}. Следующий раз удержишься дольше!`;$('#rewardText').textContent=`+${reward}`;showView('resultView')}
+$('#resultBack').onclick=()=>{socket.emit('leaveRoom');room=null;lobby=null;gameState=null;selfId=null;$('#roomPill').style.display='none';$('#leftpanel').innerHTML='';$('#hand').innerHTML='';lastHandKey='';selected.clear();showView('homeView')};
+
+// ---------------------------------------------------------------------------
+// Procedural Three.js saloon, character models and a detailed copper rodeo bull
+// ---------------------------------------------------------------------------
+let renderer,scene,camera,clock,worldReady=false,lowPowerMode=false,cardStack=null;
+const actorModels=new Map();let bullRig=null,dust=null,rodeomotion=null;
+const v3=(x,y,z)=>new THREE.Vector3(x,y,z);
+const mat=(color,roughness=.65,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
+function mesh(parent,geo,material,pos=[0,0,0],scale=null){const m=new THREE.Mesh(geo,material);m.position.set(...pos);if(scale)m.scale.set(...scale);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m}
+function sphere(parent,material,pos,scale,detail=24){return mesh(parent,new THREE.SphereGeometry(1,detail,Math.max(12,detail>>1)),material,pos,scale)}
+function rod(parent,a,b,radius,material,r2=radius){const A=v3(...a),B=v3(...b),d=B.clone().sub(A),m=mesh(parent,new THREE.CylinderGeometry(r2,radius,d.length(),12),material,[0,0,0]);m.position.copy(A.clone().add(B).multiplyScalar(.5));m.quaternion.setFromUnitVectors(v3(0,1,0),d.normalize());return m}
+function tube(parent,points,radius,material,segments=24){const curve=new THREE.CatmullRomCurve3(points.map(p=>v3(...p)));return mesh(parent,new THREE.TubeGeometry(curve,segments,radius,8,false),material)}
+function makeWoodTexture(){const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');x.fillStyle='#654027';x.fillRect(0,0,512,512);for(let i=0;i<120;i++){const y=Math.random()*512;x.strokeStyle=`rgba(${i%2?24:218},${i%2?13:143},${i%2?7:82},${.05+Math.random()*.13})`;x.lineWidth=1+Math.random()*5;x.beginPath();x.moveTo(0,y);x.bezierCurveTo(130,y+Math.random()*12-6,350,y+Math.random()*20-10,512,y+Math.random()*12-6);x.stroke()}for(let i=0;i<35;i++){x.fillStyle='rgba(18,9,4,.13)';x.beginPath();x.ellipse(Math.random()*512,Math.random()*512,5+Math.random()*25,2+Math.random()*4,Math.random(),0,Math.PI*2);x.fill()}const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,1);return t}
+function makeLeatherTexture(){const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');x.fillStyle='#31231d';x.fillRect(0,0,256,256);for(let i=0;i<1700;i++){x.fillStyle=`rgba(220,190,155,${Math.random()*.07})`;x.fillRect(Math.random()*256,Math.random()*256,1+Math.random()*2,1+Math.random()*2)}const t=new THREE.CanvasTexture(c);return t}
+function createRoom(){
+ scene=new THREE.Scene();scene.background=new THREE.Color(0x100b08);scene.fog=new THREE.FogExp2(0x100b08,.035);
+ camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,100);camera.position.set(0,8.3,13.7);camera.lookAt(0,1.1,-1.1);
+ renderer=new THREE.WebGLRenderer({canvas:$('#scene'),antialias:true,alpha:false,powerPreference:'high-performance'});lowPowerMode=(navigator.hardwareConcurrency||4)<=4||innerWidth<720;const lowPower=lowPowerMode;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPower?1.05:1.55));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=!lowPower;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;if('outputEncoding'in renderer)renderer.outputEncoding=THREE.sRGBEncoding;
+ // A compact procedural reflection probe gives the copper body readable highlights without downloading a large HDR map.
+ try{const envScene=new THREE.Scene();envScene.background=new THREE.Color(0x20150f);const addGlow=(color,pos,scale)=>{const q=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),new THREE.MeshBasicMaterial({color}));q.position.set(...pos);q.scale.set(...scale);envScene.add(q)};addGlow(0xffc080,[0,4,2],[4,.3,.3]);addGlow(0x6c8ca8,[-5,2,-3],[2,3,.2]);addGlow(0xff8f45,[4,2,-4],[2,3,.25]);const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(envScene,.04).texture;pmrem.dispose()}catch(e){}
+ clock=new THREE.Clock();
+ const hemi=new THREE.HemisphereLight(0x9cacc7,0x241207,1.05);scene.add(hemi);
+ const key=new THREE.DirectionalLight(0xffd5a0,2.35);key.position.set(-5,10,7);key.castShadow=!lowPower;key.shadow.mapSize.set(lowPower?512:1536,lowPower?512:1536);key.shadow.camera.left=-12;key.shadow.camera.right=12;key.shadow.camera.top=12;key.shadow.camera.bottom=-12;key.shadow.bias=-.00025;scene.add(key);
+ const fill=new THREE.PointLight(0xff9348,95,23,2);fill.position.set(1,5,-5);scene.add(fill);
+ const cool=new THREE.PointLight(0x557da8,38,18,2);cool.position.set(-7,4,3);scene.add(cool);
+ const floorMat=new THREE.MeshStandardMaterial({color:0x382619,roughness:.92,map:makeWoodTexture()});const floor=mesh(scene,new THREE.PlaneGeometry(70,70),floorMat,[0,-.08,0]);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;
+ // Saloon perimeter: dark timber wall and warm vertical posts.
+ const wall=mesh(scene,new THREE.CylinderGeometry(15,15,8,48,1,true),mat(0x2a1a12,.95),[0,4,-1]);wall.material.side=THREE.BackSide;wall.receiveShadow=true;
+ for(let i=0;i<28;i++){const a=i/28*Math.PI*2,x=Math.cos(a)*14.4,z=Math.sin(a)*14.4-1;const post=mesh(scene,new THREE.BoxGeometry(.22,7.4,.24),mat(i%2?0x59351e:0x422718,.82),[x,3.7,z]);post.rotation.y=-a}
+ for(let i=0;i<7;i++){const x=-7+i*2.3;mesh(scene,new THREE.BoxGeometry(1.1,1.9,.17),mat(0x111b23,.45),[x,3.4,-14.25]);mesh(scene,new THREE.BoxGeometry(1.25,.12,.23),mat(0xa9783d,.4,.6),[x,4.38,-14.1])}
+ // Suspended lamps.
+ for(let i=0;i<5;i++){const x=(i-2)*3.2;rod(scene,[x,7,-2],[x,5.35,-2],.035,mat(0x25201b,.35,.8));sphere(scene,mat(0xffb85d,.22,.1),[x,5.25,-2],[.16,.16,.16],16);const l=new THREE.PointLight(0xffa94d,26,9,2);l.position.set(x,5,-2);scene.add(l)}
+ // Round poker table, trim, felt and rivets.
+ const wood= new THREE.MeshStandardMaterial({color:0x83562f,roughness:.58,metalness:.06,map:makeWoodTexture()});const brass=mat(0xb88342,.28,.8);
+ mesh(scene,new THREE.CylinderGeometry(2.35,2.28,.34,72),wood,[0,1.23,-.4]);mesh(scene,new THREE.CylinderGeometry(2.16,2.16,.035,72),mat(0x244335,.92),[0,1.415,-.4]);mesh(scene,new THREE.TorusGeometry(2.26,.055,12,72),brass,[0,1.42,-.4]).rotation.x=Math.PI/2;
+ mesh(scene,new THREE.CylinderGeometry(.42,.63,1.05,24),mat(0x4c2d1b,.8),[0,.56,-.4]);for(let i=0;i<8;i++){const a=i/8*Math.PI*2;const leg=mesh(scene,new THREE.BoxGeometry(.22,.86,.22),mat(0x57351e,.75),[Math.cos(a)*1.5,.55+0,Math.sin(a)*1.5-.4]);leg.rotation.y=-a}
+ for(let i=0;i<48;i++){const a=i/48*Math.PI*2;mesh(scene,new THREE.SphereGeometry(.035,8,6),brass,[Math.cos(a)*2.25,1.42,Math.sin(a)*2.25-.4])}
+ cardStack=new THREE.Group();cardStack.position.set(0,1.47,-.4);scene.add(cardStack);
+ // Seats and saloon back bar.
+ for(let i=0;i<4;i++){const a=i*Math.PI/2+Math.PI/4,x=Math.cos(a)*3.35,z=Math.sin(a)*3.35-.4;const chair=new THREE.Group();chair.position.set(x,0,z);chair.rotation.y=-a+Math.PI;scene.add(chair);mesh(chair,new THREE.BoxGeometry(.85,.16,.82),mat(0x493022,.82),[0,.78,0]);mesh(chair,new THREE.BoxGeometry(.84,1.15,.14),mat(0x3a261c,.85),[0,1.31,-.34]);for(const dx of [-.32,.32])for(const dz of [-.29,.29])rod(chair,[dx,.05,dz],[dx,.8,dz],.055,mat(0x5a3821,.65));}
+ for(let i=0;i<5;i++){mesh(scene,new THREE.BoxGeometry(1.1,.2,.45),wood,[-5+i*2.45,1.1,-11.5]);mesh(scene,new THREE.BoxGeometry(.09,1.9,.09),brass,[-5+i*2.45,2,-11.5])}
+ makeBull();makeDust();worldReady=true;window.addEventListener('resize',resize3d);animate3d();
+}
+function update3dPile(count){if(!cardStack)return;while(cardStack.children.length){const o=cardStack.children[0];cardStack.remove(o);o.geometry?.dispose?.();if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material?.dispose?.()}const n=Math.min(18,Math.max(0,count|0));for(let i=0;i<n;i++){const card=mesh(cardStack,new THREE.BoxGeometry(.52,.025,.72),i%2?mat(0x6c1f18,.55):mat(0x8c3022,.48),[(i%5-2)*.045,i*.018,((i%3)-1)*.035]);card.rotation.y=i*.17;card.castShadow=false}}
+function makeDust(){const count=innerWidth<720?130:300;const g=new THREE.BufferGeometry(),positions=new Float32Array(count*3);for(let i=0;i<count;i++){positions[i*3]=(Math.random()-.5)*22;positions[i*3+1]=Math.random()*7;positions[i*3+2]=(Math.random()-.5)*22}g.setAttribute('position',new THREE.BufferAttribute(positions,3));dust=new THREE.Points(g,new THREE.PointsMaterial({color:0xf6c987,size:innerWidth<720?.025:.035,transparent:true,opacity:.32,depthWrite:false}));scene.add(dust)}
+function makeBull(){
+ const platformMat=mat(0x24272a,.38,.82),railMat=mat(0x6d777b,.3,.82);mesh(scene,new THREE.CylinderGeometry(2.45,2.58,.3,64),platformMat,[0,.1,-6.6]);const rim=mesh(scene,new THREE.TorusGeometry(2.42,.075,12,64),mat(0xb8733e,.24,.86),[0,.27,-6.6]);rim.rotation.x=Math.PI/2;for(let i=0;i<12;i++){const a=i/12*Math.PI*2,x=Math.cos(a)*2.18,z=-6.6+Math.sin(a)*2.18;rod(scene,[x,.28,z],[x,1.15,z],.045,railMat,.045)}for(const y of [.55,1.03]){const rail=mesh(scene,new THREE.TorusGeometry(2.18,.045,8,64),railMat,[0,y,-6.6]);rail.rotation.x=Math.PI/2}
+ const root=new THREE.Group();root.position.set(0,.18,-6.6);scene.add(root);const body=new THREE.Group();root.add(body);
+ const copper=new THREE.MeshStandardMaterial({color:0x9c542e,metalness:.88,roughness:.27}),copperLight=new THREE.MeshStandardMaterial({color:0xc07a43,metalness:.86,roughness:.22}),darkMetal=mat(0x20252a,.32,.86),steel=mat(0x9ca0a2,.24,.88),horn=mat(0xd6c5a0,.34,.1),rubber=mat(0x171719,.9);
+ sphere(body,copper,[0,1.48,0],[1.55,.78,.72],40);sphere(body,copperLight,[.95,1.7,0],[.67,.65,.62],32);sphere(body,copper,[-.96,1.52,0],[.66,.69,.64],32);
+ sphere(body,copperLight,[1.5,1.52,0],[.48,.42,.43],32);sphere(body,copper,[1.91,1.36,0],[.5,.32,.38],32);sphere(body,mat(0x4a2920,.6,.6),[2.19,1.23,0],[.27,.22,.32],24);
+ // Muzzle vents and nostrils.
+ for(const side of [-1,1]){sphere(body,darkMetal,[2.13,1.28,side*.19],[.075,.055,.045],12);sphere(body,mat(0x120d0b,.35),[1.84,1.65,side*.3],[.085,.07,.04],16);sphere(body,mat(0xffd08b,.18),[1.87,1.67,side*.328],[.026,.026,.018],12);}
+ // Curved horns with machined bases.
+ for(const side of [-1,1]){sphere(body,darkMetal,[1.43,1.93,side*.42],[.19,.13,.16]);tube(body,[[1.42,1.96,side*.43],[1.55,2.22,side*.56],[1.83,2.39,side*.65],[2.06,2.27,side*.65]],.105,horn,22);tube(body,[[1.53,2.08,side*.5],[1.68,2.29,side*.59],[1.86,2.37,side*.65]],.022,mat(0x8a826f,.4,.3),14);}
+ // Four articulated legs with joints, hydraulic struts and heavy hooves.
+ for(const x of [-.92,.93])for(const z of [-.45,.45]){const front=x>0;const hip=[x,1.15,z],knee=[x+(front?.08:-.05),.64,z],ankle=[x+(front?.13:-.08),.22,z];sphere(body,copperLight,hip,[.27,.31,.25],20);rod(body,hip,knee,.145,copper,.12);sphere(body,darkMetal,knee,[.17,.16,.16],16);rod(body,knee,ankle,.105,copperLight,.085);rod(body,[x-.08,.82,z+.13],[x-.12,.3,z+.13],.035,steel,.028);mesh(body,new THREE.BoxGeometry(.37,.18,.38),rubber,[ankle[0]+.05,.1,ankle[2]]);mesh(body,new THREE.BoxGeometry(.34,.035,.35),darkMetal,[ankle[0]+.05,.205,ankle[2]]);}
+ // Tail, saddle, straps and exposed mechanical parts.
+ tube(body,[[-1.45,1.8,0],[-1.75,1.55,0],[-1.8,1.12,.05],[-1.65,.95,.16]],.045,copperLight,24);sphere(body,darkMetal,[-1.65,.94,.16],[.1,.1,.1]);
+ mesh(body,new THREE.BoxGeometry(1.05,.18,.95),mat(0x2c211a,.72),[-.05,2.22,0]);mesh(body,new THREE.BoxGeometry(.82,.08,.77),mat(0x6d3826,.48),[-.05,2.34,0]);
+ for(const side of [-1,1]){rod(body,[-.5,1.45,side*.57],[-.5,2.13,side*.57],.08,darkMetal,.08);for(let x=-.65;x<1.1;x+=.42){mesh(body,new THREE.BoxGeometry(.19,.31,.045),copperLight,[x,1.47,side*.69]).rotation.z=.25;for(let y of [1.37,1.56])sphere(body,steel,[x-.055,y,side*.72],[.025,.025,.018],8)}}
+ // Gear housings and circular gear silhouettes.
+ for(const side of [-1,1]){const gear=mesh(body,new THREE.TorusGeometry(.32,.065,10,32),steel,[-.25,1.4,side*.7]);gear.rotation.y=Math.PI/2;const hub=mesh(body,new THREE.CylinderGeometry(.16,.16,.18,24),darkMetal,[-.25,1.4,side*.68]);hub.rotation.z=Math.PI/2;for(let i=0;i<10;i++){const a=i/10*Math.PI*2;sphere(body,copperLight,[-.25+Math.cos(a)*.31,1.4+Math.sin(a)*.31,side*.77],[.055,.055,.035],10)}rod(body,[-.65,1.05,side*.53],[-.18,1.05,side*.53],.06,steel,.05)}
+ root.visible=false;bullRig={root,body,metal:copperLight};
+}
+function headTexture(character){const c=document.createElement('canvas');c.width=256;c.height=256;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#e7c09d');g.addColorStop(.55,'#d3a07d');g.addColorStop(1,'#9c694f');x.fillStyle=g;x.fillRect(0,0,256,256);for(let i=0;i<850;i++){x.fillStyle=`rgba(75,38,27,${Math.random()*.045})`;x.fillRect(Math.random()*256,Math.random()*256,1,1)}x.fillStyle='rgba(110,55,43,.12)';x.beginPath();x.ellipse(128,174,37,8,0,0,Math.PI*2);x.fill();return new THREE.CanvasTexture(c)}
+function createCharacter(player,index){
+ const root=new THREE.Group();const char=player.character||'walter',skinId=player.skin||'classic';
+ const palettes={classic:0x5b4636,hazmat:0xd1b72f,lawyer:0x762d49,neon:0x087e82,copper:0x9a512d,midnight:0x202632};const jacket=mat(palettes[skinId]||0x5b4636,.55,.08),shirt=mat(char==='saul'?0xf3e3c1:char==='walter'?0xd0d2c6:0x363944,.78),pants=mat(0x282522,.83),skin=mat(char==='gus'?0x936548:0xc58e6b,.76),hair=mat(char==='saul'?0x493124:char==='gus'?0x211b19:0x35271f,.82),dark=mat(0x171514,.42),white=mat(0xf0e8db,.38),eye=mat(0x33241d,.35),tie=mat(char==='saul'?0xd6a12f:char==='gus'?0x3b2522:0x252e31,.46);
+ // Lower body, tailored torso, shoulder line and layered shirt.
+ skin.map=headTexture(char);skin.needsUpdate=true;
+ const hips=mesh(root,new THREE.CylinderGeometry(.34,.39,.62,20),pants,[0,.64,0]);hips.rotation.z=.02;
+ mesh(root,new THREE.CylinderGeometry(.37,.48,1.02,24),jacket,[0,1.35,0]);sphere(root,jacket,[0,1.83,0],[.58,.29,.36],24);
+ mesh(root,new THREE.BoxGeometry(.31,.73,.055),shirt,[0,1.42,.36]);mesh(root,new THREE.BoxGeometry(.095,.57,.075),tie,[0,1.39,.412]);mesh(root,new THREE.ConeGeometry(.11,.2,4),tie,[0,1.13,.42]).rotation.x=Math.PI;
+ // Lapels and pocket details.
+ const lapelMat=mat(char==='saul'?0x9a5367:0xddd1bc,.58);const l1=mesh(root,new THREE.BoxGeometry(.19,.58,.07),lapelMat,[-.18,1.58,.37]);l1.rotation.z=-.32;const l2=mesh(root,new THREE.BoxGeometry(.19,.58,.07),lapelMat,[.18,1.58,.37]);l2.rotation.z=.32;
+ mesh(root,new THREE.BoxGeometry(.15,.08,.035),mat(0xe7d4b7,.6),[.29,1.48,.4]);
+ // Neck and realistic head volume.
+ rod(root,[0,1.76,0],[0,1.95,0],.14,skin,.13);
+ const head=new THREE.Group();head.position.set(0,2.2,.02);root.add(head);
+ sphere(head,skin,[0,0,0],[.36,.43,.32],40);
+ sphere(head,skin,[-.35,-.03,0],[.08,.13,.08],18);sphere(head,skin,[.35,-.03,0],[.08,.13,.08],18);
+ // Eye sockets, eyelids, iris, pupils and brows.
+ for(const side of [-1,1]){sphere(head,mat(0x9e7159,.8),[side*.142,.055,.273],[.105,.075,.045],20);sphere(head,white,[side*.142,.056,.302],[.071,.039,.025],20);sphere(head,mat(char==='gus'?0x3c2920:0x49616a,.35),[side*.142,.055,.324],[.027,.029,.012],16);sphere(head,eye,[side*.142,.055,.334],[.012,.017,.008],10);tube(head,[[side*.245,.145,.272],[side*.14,.17,.3],[side*.045,.14,.285]],.025,hair,12);}
+ // Nose bridge, nostrils, lips and ears.
+ sphere(head,skin,[0,-.025,.31],[.075,.15,.09],20);sphere(head,skin,[0,-.12,.365],[.115,.065,.07],20);for(const side of [-1,1])sphere(head,dark,[side*.065,-.145,.41],[.024,.013,.012],10);
+ tube(head,[[-.09,-.235,.29],[0,-.255,.33],[.09,-.235,.29]],.012,mat(0x7e4039,.65),12);sphere(head,mat(0x925b50,.7),[0,-.27,.29],[.08,.022,.035],16);
+ // Hair: recognizable silhouettes without flat emoji faces.
+ if(char==='walter'){
+   const scalp=mesh(head,new THREE.SphereGeometry(.365,32,20,0,Math.PI*2,0,Math.PI*.52),hair,[0,.2,-.015]);
+   sphere(head,mat(0x3e2c24,.85),[0,-.27,.285],[.18,.13,.105],20);sphere(head,dark,[-.07,-.23,.34],[.1,.045,.04],16);sphere(head,dark,[.07,-.23,.34],[.1,.045,.04],16);
+   // Thin rectangular glasses frames with bridge and arms.
+   for(const side of [-1,1]){const frame=mesh(head,new THREE.TorusGeometry(.105,.012,8,32),dark,[side*.143,.055,.325]);frame.scale.set(1.05,.73,1);rod(head,[side*.24,.07,.3],[side*.35,.08,.08],.012,dark,.012)}rod(head,[-.04,.06,.33],[.04,.06,.33],.012,dark,.012);
+ }else if(char==='saul'){
+   mesh(head,new THREE.SphereGeometry(.365,32,20,0,Math.PI*2,0,Math.PI*.47),hair,[0,.19,-.02]);sphere(head,hair,[-.24,.17,-.02],[.16,.17,.29],20);sphere(head,hair,[.14,.24,-.04],[.24,.09,.29],22);tube(head,[[-.3,.27,.03],[-.12,.36,.02],[.1,.34,.02],[.26,.27,0]],.035,mat(0x6b4931,.8),18);
+ }else if(char==='jesse'){
+   sphere(head,mat(0x25262b,.9),[0,.29,-.02],[.39,.16,.35],24);sphere(head,mat(0x25262b,.9),[0,.35,.04],[.31,.12,.28],24);sphere(head,hair,[-.23,.03,-.02],[.1,.12,.16],16);sphere(head,hair,[.23,.03,-.02],[.1,.12,.16],16);
+ }else{
+   mesh(head,new THREE.SphereGeometry(.36,32,20,0,Math.PI*2,0,Math.PI*.5),hair,[0,.18,-.02]);sphere(head,dark,[0,-.23,.29],[.16,.045,.045],18);sphere(head,mat(0x211a17,.8),[0,-.28,.31],[.13,.035,.035],16);
+ }
+ // Arms: upper arm, elbow, forearm, cuff and hands, bent toward the table.
+ for(const side of [-1,1]){const shoulder=[side*.49,1.73,0],elbow=[side*.67,1.25,.19],wrist=[side*.5,.99,.47];rod(root,shoulder,elbow,.14,jacket,.115);sphere(root,jacket,elbow,[.13,.14,.13],16);rod(root,elbow,wrist,.105,jacket,.09);rod(root,[wrist[0],wrist[1]+.07,wrist[2]],[wrist[0],wrist[1]-.02,wrist[2]],.11,shirt,.1);sphere(root,skin,[side*.5,.91,.5],[.12,.09,.14],18);}
+ // Character-specific details: Walter stubble, Saul's smile and Gus moustache.
+ if(char==='walter'){sphere(head,dark,[0,-.32,.235],[.15,.09,.1],18);for(let i=0;i<15;i++){const x=(Math.random()-.5)*.25,y=-.32+Math.random()*.12;sphere(head,mat(0x2b2927,.8),[x,y,.335],[.008,.008,.006],6)}}
+ if(char==='saul'){sphere(head,mat(0x9d6050,.8),[0,-.18,.33],[.105,.023,.024],14);sphere(root,mat(0xc7a34c,.35,.75),[.28,1.33,.405],[.03,.03,.02],10)}
+ if(char==='gus'){sphere(head,dark,[-.08,-.21,.31],[.1,.025,.035],16);sphere(head,dark,[.08,-.21,.31],[.1,.025,.035],16);}
+ // Small lapel pin and belt buckle.
+ sphere(root,mat(0xd1a15c,.25,.82),[-.29,1.55,.41],[.035,.035,.02],12);
+ return root;
+}
+function syncCharacters(players){
+ if(!worldReady)return;const keep=new Set();const positions=[[0,0,3.35],[-3.35,0,0],[0,0,-3.35],[3.35,0,0]];
+ players.forEach((p,i)=>{keep.add(p.id);let record=actorModels.get(p.id);const sig=`${p.character}|${p.skin}`;if(!record||record.sig!==sig){if(record)scene.remove(record.group);const group=createCharacter(p,i);record={group,sig,base:positions[i]||positions[0],player:p};actorModels.set(p.id,record);scene.add(group)}record.player=p;record.base=positions[i]||positions[0];if(!rodeomotion||rodeomotion.playerId!==p.id){record.group.position.set(record.base[0],0,record.base[2]-.4);record.group.rotation.y=Math.atan2(-record.base[0],-record.base[2]+.4)}record.group.visible=p.alive!==false;});
+ for(const [pid,record] of actorModels){if(!keep.has(pid)){scene.remove(record.group);actorModels.delete(pid)}}
+}
+let activeState=null;
+function startRodeoVisual(rodeo){if(!bullRig||!rodeo)return;rodeomotion={playerId:rodeo.playerId,start:performance.now(),out:rodeo.out,landed:false};bullRig.root.visible=true;const record=actorModels.get(rodeo.playerId);if(record){record.group.visible=true;record.group.scale.setScalar(.78);record.group.position.set(0,1.95,-6.4);record.group.rotation.set(0,Math.PI/2,0)}}
+function animate3d(){requestAnimationFrame(animate3d);if(!worldReady)return;const dt=Math.min(.05,clock.getDelta()),elapsed=performance.now()/1000;
+ if(dust){dust.rotation.y+=dt*.012;const a=dust.geometry.attributes.position;for(let i=0;i<a.count;i++){let y=a.getY(i)+dt*.055;if(y>7)y=0;a.setY(i,y)}a.needsUpdate=true}
+ if(rodeomotion&&bullRig){const t=(performance.now()-rodeomotion.start)/1000,w=t*7.5;bullRig.root.visible=true;bullRig.body.rotation.z=Math.sin(w)*.12;bullRig.body.rotation.x=Math.sin(w*.73)*.07;bullRig.root.position.y=.18+Math.abs(Math.sin(w*.7))*.12;const rec=actorModels.get(rodeomotion.playerId);if(rec){const g=rec.group;if(rodeomotion.out&&t>1.65){const flight=t-1.65;const y=2.3+4.2*flight-4.9*flight*flight;g.position.set(-.4-2.1*flight,Math.max(.12,y),-6.2+.25*flight);g.rotation.set(flight*3.8,Math.PI/2,flight*2.5);if(y<=.12&&!rodeomotion.landed){rodeomotion.landed=true;g.position.y=.12;g.rotation.set(1.4,1.1,1.2)}}else{g.position.set(Math.sin(w*.5)*.13,2.28+bullRig.root.position.y+Math.abs(Math.sin(w))*.13,-6.2+Math.cos(w)*.08);g.rotation.set(Math.sin(w)*.14,Math.PI/2+Math.sin(w*.6)*.1,-Math.sin(w*.9)*.16)}}if(t>5.35){bullRig.root.visible=false;bullRig.root.position.set(0,.18,-6.6);bullRig.body.rotation.set(0,0,0);if(rec&&rec.player.alive!==false){rec.group.scale.setScalar(1);rec.group.position.set(rec.base[0],0,rec.base[2]-.4);rec.group.rotation.set(0,Math.atan2(-rec.base[0],-rec.base[2]+.4),0)}rodeomotion=null}}
+ // Slow breathing and subtle idle shifts keep the saloon from feeling static.
+ for(const [pid,r] of actorModels){if(rodeomotion?.playerId===pid)continue;if(r.group.visible){r.group.position.y=Math.sin(elapsed*1.7+pid.length)*.012}}
+ const target=rodeomotion?v3(0,6.1,5.4):v3(0,8.3,13.7);camera.position.lerp(target,Math.min(1,dt*(rodeomotion?1.8:.5)));camera.lookAt(0,rodeomotion?1.35:1.1,rodeomotion?-5.3:-1.1);renderer.render(scene,camera)}
+function resize3d(){if(!renderer||!camera)return;lowPowerMode=(navigator.hardwareConcurrency||4)<=4||innerWidth<720;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPowerMode?1.05:1.55));renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.fov=innerWidth/innerHeight<1.3?49:42;camera.updateProjectionMatrix()}
+if(typeof THREE==='undefined'){$('#connectionStatus').textContent='Не загрузился Three.js. Проверь подключение к интернету.'}else createRoom();
+// React to new room/game snapshots and drive the 3D cast.
+// Sync each network snapshot into the 3D stage.
+if(socket){socket.on('gameState',state=>{activeState=state;update3dPile(state.pileCount||0);syncCharacters(state.players||[]);if(state.phase==='rodeo'&&state.rodeo&&(!rodeomotion||rodeomotion.playerId!==state.rodeo.playerId))startRodeoVisual(state.rodeo);if(state.phase==='playing'&&rodeomotion){bullRig.root.visible=false;bullRig.root.position.set(0,.18,-6.6);bullRig.body.rotation.set(0,0,0);const rec=actorModels.get(rodeomotion.playerId);if(rec&&rec.player.alive!==false){rec.group.scale.setScalar(1);rec.group.position.set(rec.base[0],0,rec.base[2]-.4);rec.group.rotation.set(0,Math.atan2(-rec.base[0],-rec.base[2]+.4),0)}rodeomotion=null}})}
+</script>
+</body>
+</html>
