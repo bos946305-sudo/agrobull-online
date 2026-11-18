@@ -164,7 +164,7 @@ function createRoom(){
  for(let i=0;i<5;i++){const x=(i-2)*3.2;rod(scene,[x,7,-2],[x,5.35,-2],.035,mat(0x25201b,.35,.8));sphere(scene,mat(0xffb85d,.22,.1),[x,5.25,-2],[.16,.16,.16],16);const l=new THREE.PointLight(0xffa94d,26,9,2);l.position.set(x,5,-2);scene.add(l)}
  // Saturated neon accents and colored light pools break up the warm wood palette.
   const neonBlue=mat(0x16a6bd,.28,.48),neonPink=mat(0xd44779,.3,.35);const tealGlow=new THREE.PointLight(0x19b9c5,34,12,2);tealGlow.position.set(-8,3,-8);scene.add(tealGlow);const pinkGlow=new THREE.PointLight(0xd83b82,30,12,2);pinkGlow.position.set(8,3,-9);scene.add(pinkGlow);
-  for(let i=0;i<6;i++){const x=-6+i*2.4;const sign=mesh(scene,new THREE.BoxGeometry(1.25,.72,.09),i%2?neonPink:neonBlue,[x,4.45,-13.95]);sign.material.emissive=new THREE.Color(i%2?0x64132f:0x07505c);sign.material.emissiveIntensity=.8;mesh(scene,new THREE.BoxGeometry(1.38,.08,.13),brass,[x,4.05,-13.9])}
+  for(let i=0;i<6;i++){const x=-6+i*2.4;const sign=mesh(scene,new THREE.BoxGeometry(1.25,.72,.09),i%2?neonPink:neonBlue,[x,4.45,-13.95]);sign.material.emissive=new THREE.Color(i%2?0x64132f:0x07505c);sign.material.emissiveIntensity=.8;mesh(scene,new THREE.BoxGeometry(1.38,.08,.13),mat(0xb88342,.28,.8),[x,4.05,-13.9])}
   // Round poker table, trim, felt and rivets.
  const wood= new THREE.MeshStandardMaterial({color:0x83562f,roughness:.58,metalness:.06,map:makeWoodTexture()});const brass=mat(0xb88342,.28,.8);
  mesh(scene,new THREE.CylinderGeometry(2.35,2.28,.34,72),wood,[0,1.23,-.4]);mesh(scene,new THREE.CylinderGeometry(2.16,2.16,.035,72),mat(0x244335,.92),[0,1.415,-.4]);mesh(scene,new THREE.TorusGeometry(2.26,.055,12,72),brass,[0,1.42,-.4]).rotation.x=Math.PI/2;
