@@ -472,5 +472,6 @@ if(typeof THREE==='undefined'){$('#connectionStatus').textContent='Не загр
 if(socket){socket.on('gameState',state=>{activeState=state;update3dPile(state.pileCount||0);syncCharacters(state.players||[]);if(state.phase==='rodeo'&&state.rodeo&&(!rodeomotion||rodeomotion.playerId!==state.rodeo.playerId))startRodeoVisual(state.rodeo);if(state.phase==='playing'&&rodeomotion){bullRig.root.visible=true;bullRig.root.position.set(0,.18,-6.6);bullRig.body.rotation.set(0,0,0);const rec=actorModels.get(rodeomotion.playerId);if(rec&&rec.player.alive!==false){rec.group.scale.setScalar(1);rec.group.position.set(rec.base[0],0,rec.base[2]-.4);rec.group.rotation.set(0,Math.atan2(-rec.base[0],-rec.base[2]+.4),0)}rodeomotion=null}})}
 </script>
 <script src="/agro-ui.js" defer></script>
+<script src="/agro-fx.js" defer></script>
 </body>
 </html>
