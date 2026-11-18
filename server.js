@@ -207,6 +207,21 @@ function resolveCall(room, caller) {
 function roomError(socket, message) { socket.emit('roomError', { message }); }
 
 io.on('connection', socket => {
+  // Room-scoped emoji relay. Sender identity is taken from the authenticated room session.
+  const allowedEmotes = new Set(['😂', '🤡', '💀', '🍅', '🥚', '🔥', '😡', '👍']);
+  socket.on('emote', (data = {}) => {
+    const room = roomFor(socket);
+    const sender = room && playerById(room, socket.data.playerId);
+    if (!room || !sender || !allowedEmotes.has(data.e)) return;
+    const targetId = String(data.to || '');
+    const target = playerById(room, targetId);
+    if (!target || target.id === sender.id) return;
+    const now = Date.now();
+    if (socket.data.lastEmoteAt && now - socket.data.lastEmoteAt < 650) return;
+    socket.data.lastEmoteAt = now;
+    socket.to(room.code).emit('emote', { from: sender.id, to: target.id, e: data.e });
+  });
+
   socket.on('createRoom', (data = {}) => {
     if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
     const profile = profileFrom(data);
