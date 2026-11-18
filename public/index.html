@@ -7,7 +7,7 @@
 <title>AGROBULL — 3D Online</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.128.0/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.128.0/three.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/three@0.128.0/build/three.min.js'"></script>
 <script src="/socket.io/socket.io.js"></script>
 <style>
 :root{color-scheme:dark;--gold:#d5a45e;--gold2:#f0cb8a;--red:#ba3c2f;--panel:rgba(22,17,14,.88);--line:rgba(220,176,111,.32);--muted:#b8a895;--cream:#f1e5d0}
@@ -191,7 +191,7 @@ function makeBull(){
  for(const side of [-1,1]){rod(body,[-.5,1.45,side*.57],[-.5,2.13,side*.57],.08,darkMetal,.08);for(let x=-.65;x<1.1;x+=.42){mesh(body,new THREE.BoxGeometry(.19,.31,.045),copperLight,[x,1.47,side*.69]).rotation.z=.25;for(let y of [1.37,1.56])sphere(body,steel,[x-.055,y,side*.72],[.025,.025,.018],8)}}
  // Gear housings and circular gear silhouettes.
  for(const side of [-1,1]){const gear=mesh(body,new THREE.TorusGeometry(.32,.065,10,32),steel,[-.25,1.4,side*.7]);gear.rotation.y=Math.PI/2;const hub=mesh(body,new THREE.CylinderGeometry(.16,.16,.18,24),darkMetal,[-.25,1.4,side*.68]);hub.rotation.z=Math.PI/2;for(let i=0;i<10;i++){const a=i/10*Math.PI*2;sphere(body,copperLight,[-.25+Math.cos(a)*.31,1.4+Math.sin(a)*.31,side*.77],[.055,.055,.035],10)}rod(body,[-.65,1.05,side*.53],[-.18,1.05,side*.53],.06,steel,.05)}
- root.visible=false;bullRig={root,body,metal:copperLight};
+ root.visible=true;bullRig={root,body,metal:copperLight};
 }
 function headTexture(character){const c=document.createElement('canvas');c.width=256;c.height=256;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#e7c09d');g.addColorStop(.55,'#d3a07d');g.addColorStop(1,'#9c694f');x.fillStyle=g;x.fillRect(0,0,256,256);for(let i=0;i<850;i++){x.fillStyle=`rgba(75,38,27,${Math.random()*.045})`;x.fillRect(Math.random()*256,Math.random()*256,1,1)}x.fillStyle='rgba(110,55,43,.12)';x.beginPath();x.ellipse(128,174,37,8,0,0,Math.PI*2);x.fill();return new THREE.CanvasTexture(c)}
 function createCharacter(player,index){
