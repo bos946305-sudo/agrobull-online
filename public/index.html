@@ -300,7 +300,7 @@ function makeSaloonAtmosphere(wood,brass){
  // Timber ceiling with visible beams; the hanging lamps now feel attached to a real room.
  const roofMap=makeWoodTexture();roofMap.repeat.set(4,4);
  const roof=mesh(scene,new THREE.CircleGeometry(14.7,72),new THREE.MeshStandardMaterial({color:0x24160f,roughness:.98,map:roofMap,side:THREE.DoubleSide}),[0,7.78,-1]);
- roof.rotation.x=-Math.PI/2;
+ roof.rotation.x=-Math.PI/2;roof.castShadow=false;
  const beamMat=mat(0x392318,.88),beamTrim=mat(0x76502e,.75);
  for(let i=-2;i<=2;i++){
    const x=i*5.4;
