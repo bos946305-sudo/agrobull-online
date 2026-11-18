@@ -293,7 +293,7 @@ io.on('connection', socket => {
       const target = playerById(room, data.targetId);
       if (!target || !target.alive || target.id === player.id || !target.hand.length) return roomError(socket, 'Выбери соперника, у которого остались карты.');
       player.abilityUsed = true;
-      socket.emit('privatePeek', { name: target.name, cards: target.hand.map(card => ({ icon: card.icon, name: card.name })) });
+      socket.emit('privatePeek', { targetId: target.id, name: target.name, cards: target.hand.map(card => ({ icon: card.icon, name: card.name })) });
       game.message = `${player.name} незаметно подсмотрел карты соперника.`;
       broadcastState(room);
       return;
