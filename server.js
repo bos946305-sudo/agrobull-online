@@ -41,6 +41,14 @@ function profileFrom(data = {}) {
   const skin = allowedSkins.has(data.skin) ? data.skin : 'classic';
   return { name: safeText(data.name, 'Игрок'), character, skin };
 }
+function skillFor(player) {
+  return ({
+    walter: { id: 'swap', name: 'Химический обмен', hint: 'Поменять одну карту на случайную карту соперника' },
+    saul: { id: 'beg', name: 'Адвокатская мольба', hint: 'Попросить соперника не проверять блеф' },
+    jesse: { id: 'peek', name: 'Подглядеть', hint: 'Тайно посмотреть карты одного соперника' },
+    gus: { id: 'revive', name: 'Второе дыхание', hint: 'Один раз пережить решающий сброс с быка' }
+  })[player.character] || { id: 'peek', name: 'Подглядеть', hint: 'Тайно посмотреть карты соперника' };
+}
 function roomFor(socket) {
   const code = socket.data.roomCode;
   return code ? rooms.get(code) : null;
@@ -89,11 +97,14 @@ function personalizedState(room, viewerId) {
     reveal: game.reveal,
     message: game.message,
     rodeo: game.rodeo,
+    begging: game.begging ? { id: game.begging.id, fromId: game.begging.fromId, toId: game.begging.toId, expiresAt: game.begging.expiresAt } : null,
     winnerId: game.winnerId,
     players: room.players.map(p => ({
       id: p.id, name: p.name, character: p.character, skin: p.skin,
       alive: p.alive, rides: p.rides, fallAt: p.fallAt,
       handCount: p.hand.length,
+      ability: skillFor(p),
+      abilityUsed: !!p.abilityUsed,
       hand: p.id === viewerId ? p.hand : undefined,
       ready: p.ready
     }))
@@ -147,6 +158,7 @@ function dealRound(room, afterId = null) {
     lastPlay: null,
     reveal: null,
     rodeo: null,
+    begging: null,
     winnerId: null,
     message: `Раунд ${((room.game?.round || 0) + 1)}. На столе ${table.name}.`
   };
@@ -184,7 +196,7 @@ function resolveCall(room, caller) {
     const currentRoom = rooms.get(code);
     if (!currentRoom || !currentRoom.game || currentRoom.game.gameId !== gameId || currentRoom.game.phase !== 'rodeo') return;
     const target = playerById(currentRoom, loser.id);
-    if (target && out) target.alive = false;
+    if (target && out && !currentRoom.game.rodeo?.saved) target.alive = false;
     if (activePlayers(currentRoom).length <= 1) {
       finishGame(currentRoom, activePlayers(currentRoom)[0]?.id || null);
       return;
@@ -202,7 +214,7 @@ io.on('connection', socket => {
     const player = {
       id: id(), socketId: socket.id, ...profile,
       ready: true, connected: true, alive: true, rides: 0,
-      fallAt: 2 + Math.floor(Math.random() * 4), hand: []
+      fallAt: 2 + Math.floor(Math.random() * 4), hand: [], abilityUsed: false
     };
     const room = { code, hostId: player.id, players: [player], game: null };
     rooms.set(code, room);
@@ -224,7 +236,7 @@ io.on('connection', socket => {
     const player = {
       id: id(), socketId: socket.id, ...profile,
       ready: false, connected: true, alive: true, rides: 0,
-      fallAt: 2 + Math.floor(Math.random() * 4), hand: []
+      fallAt: 2 + Math.floor(Math.random() * 4), hand: [], abilityUsed: false
     };
     room.players.push(player);
     socket.data.roomCode = code;
@@ -247,9 +259,91 @@ io.on('connection', socket => {
     if (!room || socket.data.playerId !== room.hostId) return roomError(socket, 'Начать игру может только хост.');
     if (room.players.length < MIN_PLAYERS) return roomError(socket, 'Нужно минимум 2 игрока.');
     if (!room.players.every(p => p.ready && p.connected)) return roomError(socket, 'Дождись готовности всех игроков.');
-    for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); }
+    for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); p.abilityUsed = false; }
     room.game = { gameId: id(), round: 0 };
     dealRound(room);
+  });
+
+
+  socket.on('useAbility', (data = {}) => {
+    const room = roomFor(socket);
+    const game = room?.game;
+    const player = room && playerById(room, socket.data.playerId);
+    if (!room || !game || !player || game.phase === 'finished') return;
+    const skill = skillFor(player);
+    if (data.type !== skill.id) return roomError(socket, 'Это умение недоступно выбранному персонажу.');
+    if (player.abilityUsed) return roomError(socket, 'Умение уже использовано в этом матче.');
+
+    if (skill.id === 'swap') {
+      if (game.phase !== 'playing' || !player.alive || game.currentId !== player.id) return roomError(socket, 'Обмен можно сделать только в свой ход.');
+      const index = Number(data.index), target = playerById(room, data.targetId);
+      if (!Number.isInteger(index) || index < 0 || index >= player.hand.length || !target || !target.alive || target.id === player.id || !target.hand.length) return roomError(socket, 'Выбери одну свою карту и соперника с картами.');
+      const targetIndex = Math.floor(Math.random() * target.hand.length);
+      const ownCard = player.hand[index];
+      player.hand[index] = target.hand[targetIndex];
+      target.hand[targetIndex] = ownCard;
+      player.abilityUsed = true;
+      game.message = `${player.name} использовал «Химический обмен». Карты поменялись тайно.`;
+      broadcastState(room);
+      return;
+    }
+
+    if (skill.id === 'peek') {
+      if (game.phase !== 'playing' || !player.alive || game.currentId !== player.id) return roomError(socket, 'Подглядывать можно только в свой ход.');
+      const target = playerById(room, data.targetId);
+      if (!target || !target.alive || target.id === player.id || !target.hand.length) return roomError(socket, 'Выбери соперника, у которого остались карты.');
+      player.abilityUsed = true;
+      socket.emit('privatePeek', { name: target.name, cards: target.hand.map(card => ({ icon: card.icon, name: card.name })) });
+      game.message = `${player.name} незаметно подсмотрел карты соперника.`;
+      broadcastState(room);
+      return;
+    }
+
+    if (skill.id === 'beg') {
+      if (game.phase !== 'playing' || !player.alive || !game.lastPlay || game.lastPlay.playerId !== player.id || game.currentId === player.id || game.begging) return roomError(socket, 'Умолять можно только после своего хода, пока соперник решает, проверять ли блеф.');
+      player.abilityUsed = true;
+      const request = { id: id(), fromId: player.id, toId: game.currentId, expiresAt: Date.now() + 8000 };
+      game.begging = request;
+      game.message = `${player.name} умоляет не проверять его карты…`;
+      broadcastState(room);
+      const code = room.code, gameId = game.gameId, requestId = request.id;
+      setTimeout(() => {
+        const currentRoom = rooms.get(code);
+        if (!currentRoom?.game || currentRoom.game.gameId !== gameId || currentRoom.game.begging?.id !== requestId) return;
+        currentRoom.game.begging = null;
+        currentRoom.game.message = 'Мольба закончилась. Решение за игроком, чей сейчас ход.';
+        broadcastState(currentRoom);
+      }, 8000);
+      return;
+    }
+
+    if (skill.id === 'revive') {
+      if (game.phase !== 'rodeo' || game.rodeo?.playerId !== player.id || !game.rodeo.out || game.rodeo.saved || !player.alive) return roomError(socket, 'Второе дыхание доступно только во время решающего падения с быка.');
+      player.abilityUsed = true;
+      game.rodeo.saved = true;
+      game.message = `${player.name} поднялся после падения — второе дыхание!`;
+      broadcastState(room);
+      return;
+    }
+  });
+
+  socket.on('begDecision', (data = {}) => {
+    const room = roomFor(socket), game = room?.game;
+    const player = room && playerById(room, socket.data.playerId);
+    const request = game?.begging;
+    if (!room || !game || game.phase !== 'playing' || !player || !request || request.toId !== player.id || game.currentId !== player.id) return;
+    game.begging = null;
+    if (data.accept === true) {
+      game.lastPlay = null;
+      game.reveal = null;
+      const next = nextPlayerWithCards(room, player.id);
+      if (!next) { finishGame(room, player.id); return; }
+      game.currentId = next.id;
+      game.message = `${player.name} принял мольбу. Проверки не будет — ход переходит дальше.`;
+    } else {
+      game.message = `${player.name} отказался от мольбы. Можно продолжить ход или проверить блеф.`;
+    }
+    broadcastState(room);
   });
 
   socket.on('playCards', (data = {}) => {
