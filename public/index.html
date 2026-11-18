@@ -226,24 +226,24 @@ function makeBull(){
 function headTexture(character){const c=document.createElement('canvas');c.width=256;c.height=256;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#e7c09d');g.addColorStop(.55,'#d3a07d');g.addColorStop(1,'#9c694f');x.fillStyle=g;x.fillRect(0,0,256,256);for(let i=0;i<850;i++){x.fillStyle=`rgba(75,38,27,${Math.random()*.045})`;x.fillRect(Math.random()*256,Math.random()*256,1,1)}x.fillStyle='rgba(110,55,43,.12)';x.beginPath();x.ellipse(128,174,37,8,0,0,Math.PI*2);x.fill();return new THREE.CanvasTexture(c)}
 function createCharacter(player,index){
  const root=new THREE.Group();const char=player.character||'walter',skinId=player.skin||'classic';
- const palettes={classic:0x5b4636,hazmat:0xd1b72f,lawyer:0x762d49,neon:0x087e82,copper:0x9a512d,midnight:0x202632};const jacket=mat(palettes[skinId]||0x5b4636,.55,.08),shirt=mat(char==='saul'?0xf3e3c1:char==='walter'?0xd0d2c6:char==='gus'?0xe4e1d8:0x363944,.78),pants=mat(0x282522,.83),skin=mat(char==='gus'?0x936548:0xc58e6b,.76),hair=mat(char==='saul'?0x493124:char==='gus'?0x211b19:0x35271f,.82),dark=mat(0x171514,.42),white=mat(0xf0e8db,.38),eye=mat(0x33241d,.35),tie=mat(char==='saul'?0xd6a12f:char==='gus'?0x3b2522:0x252e31,.46);
+ const palettes={classic:0x5b4636,hazmat:0xd1b72f,lawyer:0x762d49,neon:0x087e82,copper:0x9a512d,midnight:0x202632};const gusClassic=char==='gus'&&skinId==='classic';const jacket=mat(gusClassic?0x202a36:(palettes[skinId]||0x5b4636),.56,.12),shirt=mat(char==='saul'?0xf3e3c1:char==='walter'?0xd0d2c6:char==='gus'?0xe8e9e7:0x363944,.78),pants=mat(char==='gus'?0x20232a:0x282522,.83),skin=mat(char==='gus'?0xa97860:0xc58e6b,.76),hair=mat(char==='saul'?0x493124:char==='gus'?0x171719:0x35271f,.82),dark=mat(0x171514,.42),white=mat(0xf0e8db,.38),eye=mat(0x33241d,.35),tie=mat(char==='saul'?0xd6a12f:char==='gus'?0x54262b:0x252e31,.46);
  // Lower body, tailored torso, shoulder line and layered shirt.
  skin.map=headTexture(char);skin.needsUpdate=true;
  const hips=mesh(root,new THREE.CylinderGeometry(.34,.39,.62,20),pants,[0,.64,0]);hips.rotation.z=.02;
  mesh(root,new THREE.CylinderGeometry(.37,.48,1.02,24),jacket,[0,1.35,0]);sphere(root,jacket,[0,1.83,0],[.58,.29,.36],24);
  mesh(root,new THREE.BoxGeometry(.31,.73,.055),shirt,[0,1.42,.36]);mesh(root,new THREE.BoxGeometry(.095,.57,.075),tie,[0,1.39,.412]);mesh(root,new THREE.ConeGeometry(.11,.2,4),tie,[0,1.13,.42]).rotation.x=Math.PI;
  // Lapels and pocket details.
- const lapelMat=mat(char==='saul'?0x9a5367:0xddd1bc,.58);const l1=mesh(root,new THREE.BoxGeometry(.19,.58,.07),lapelMat,[-.18,1.58,.37]);l1.rotation.z=-.32;const l2=mesh(root,new THREE.BoxGeometry(.19,.58,.07),lapelMat,[.18,1.58,.37]);l2.rotation.z=.32;
- mesh(root,new THREE.BoxGeometry(.15,.08,.035),mat(0xe7d4b7,.6),[.29,1.48,.4]);
+ const lapelMat=mat(char==='saul'?0x9a5367:char==='gus'?0x34404c:0xddd1bc,.58);const l1=mesh(root,new THREE.BoxGeometry(.19,.58,.07),lapelMat,[-.18,1.58,.37]);l1.rotation.z=-.32;const l2=mesh(root,new THREE.BoxGeometry(.19,.58,.07),lapelMat,[.18,1.58,.37]);l2.rotation.z=.32;
+ mesh(root,new THREE.BoxGeometry(.15,.08,.035),mat(0xe7d4b7,.6),[.29,1.48,.4]);if(char==='gus'){const collar=mat(0xf0efeb,.7);const c1=mesh(root,new THREE.BoxGeometry(.13,.2,.045),collar,[-.105,1.72,.405]);c1.rotation.z=-.28;const c2=mesh(root,new THREE.BoxGeometry(.13,.2,.045),collar,[.105,1.72,.405]);c2.rotation.z=.28;for(let y=1.57;y>1.18;y-=.13)sphere(root,mat(0x777d81,.5),[0,y,.414],[.012,.012,.008],8);mesh(root,new THREE.BoxGeometry(.17,.075,.025),mat(0x283341,.58),[.29,1.49,.405]);}
  // Neck and realistic head volume.
  rod(root,[0,1.76,0],[0,1.95,0],.14,skin,.13);
  const head=new THREE.Group();head.position.set(0,2.2,.02);root.add(head);
- sphere(head,skin,[0,0,0],[.36,.43,.32],40);
+ sphere(head,skin,[0,0,0],char==='gus'?[.345,.445,.325]:[.36,.43,.32],44);if(char==='gus'){sphere(head,skin,[0,-.205,.095],[.255,.205,.255],28);sphere(head,skin,[-.235,-.055,.19],[.105,.115,.13],20);sphere(head,skin,[.235,-.055,.19],[.105,.115,.13],20);}
  sphere(head,skin,[-.35,-.03,0],[.08,.13,.08],18);sphere(head,skin,[.35,-.03,0],[.08,.13,.08],18);
  // Eye sockets, eyelids, iris, pupils and brows.
  for(const side of [-1,1]){sphere(head,mat(0x9e7159,.8),[side*.142,.055,.273],[.105,.075,.045],20);sphere(head,white,[side*.142,.056,.302],[.071,.039,.025],20);sphere(head,mat(char==='gus'?0x3c2920:0x49616a,.35),[side*.142,.055,.324],[.027,.029,.012],16);sphere(head,eye,[side*.142,.055,.334],[.012,.017,.008],10);tube(head,[[side*.245,.145,.272],[side*.14,.17,.3],[side*.045,.14,.285]],.025,hair,12);}
  // Nose bridge, nostrils, lips and ears.
- sphere(head,skin,[0,-.025,.31],[.075,.15,.09],20);sphere(head,skin,[0,-.12,.365],[.115,.065,.07],20);for(const side of [-1,1])sphere(head,dark,[side*.065,-.145,.41],[.024,.013,.012],10);
+ sphere(head,skin,[0,-.025,.31],[char==='gus'?.066:.075,.15,char==='gus'?.085:.09],20);sphere(head,skin,[0,-.12,.365],[char==='gus'?.092:.115,.06,.07],20);for(const side of [-1,1])sphere(head,dark,[side*.065,-.145,.41],[.024,.013,.012],10);
  tube(head,[[-.09,-.235,.29],[0,-.255,.33],[.09,-.235,.29]],.012,mat(0x7e4039,.65),12);sphere(head,mat(0x925b50,.7),[0,-.27,.29],[.08,.022,.035],16);
  // Hair: recognizable silhouettes without flat emoji faces.
  if(char==='walter'){
@@ -255,6 +255,12 @@ function createCharacter(player,index){
    mesh(head,new THREE.SphereGeometry(.365,32,20,0,Math.PI*2,0,Math.PI*.47),hair,[0,.19,-.02]);sphere(head,hair,[-.24,.17,-.02],[.16,.17,.29],20);sphere(head,hair,[.14,.24,-.04],[.24,.09,.29],22);tube(head,[[-.3,.27,.03],[-.12,.36,.02],[.1,.34,.02],[.26,.27,0]],.035,mat(0x6b4931,.8),18);
  }else if(char==='jesse'){
    sphere(head,mat(0x25262b,.9),[0,.29,-.02],[.39,.16,.35],24);sphere(head,mat(0x25262b,.9),[0,.35,.04],[.31,.12,.28],24);sphere(head,hair,[-.23,.03,-.02],[.1,.12,.16],16);sphere(head,hair,[.23,.03,-.02],[.1,.12,.16],16);
+ }else if(char==='gus'){
+   // Gus: neat, close-cropped dark hair, high hairline and a subtle side part.
+   mesh(head,new THREE.SphereGeometry(.36,40,24,0,Math.PI*2,0,Math.PI*.39),hair,[0,.19,-.015]);
+   sphere(head,hair,[0,.075,-.145],[.335,.235,.205],28);
+   sphere(head,hair,[-.316,.005,-.005],[.055,.13,.16],16);sphere(head,hair,[.316,.005,-.005],[.055,.13,.16],16);
+   tube(head,[[-.075,.49,.02],[-.045,.505,-.045],[-.005,.495,-.13],[.035,.47,-.19]],.009,mat(0x393638,.65),12);
  }else{
    mesh(head,new THREE.SphereGeometry(.36,32,20,0,Math.PI*2,0,Math.PI*.5),hair,[0,.18,-.02]);sphere(head,dark,[0,-.23,.29],[.16,.045,.045],18);sphere(head,mat(0x211a17,.8),[0,-.28,.31],[.13,.035,.035],16);
  }
@@ -263,7 +269,7 @@ function createCharacter(player,index){
  // Character-specific details: Walter stubble, Saul's smile and Gus moustache.
  if(char==='walter'){sphere(head,dark,[0,-.32,.235],[.15,.09,.1],18);for(let i=0;i<15;i++){const x=(Math.random()-.5)*.25,y=-.32+Math.random()*.12;sphere(head,mat(0x2b2927,.8),[x,y,.335],[.008,.008,.006],6)}}
  if(char==='saul'){sphere(head,mat(0x9d6050,.8),[0,-.18,.33],[.105,.023,.024],14);sphere(root,mat(0xc7a34c,.35,.75),[.28,1.33,.405],[.03,.03,.02],10)}
- if(char==='gus'){tube(head,[[-.24,-.05,.25],[-.2,-.12,.27],[-.16,-.16,.28]],.012,mat(0x8b5448,.8),10);tube(head,[[.24,-.05,.25],[.2,-.12,.27],[.16,-.16,.28]],.012,mat(0x8b5448,.8),10);}
+ if(char==='gus'){tube(head,[[-.22,-.11,.255],[-.18,-.19,.29],[-.115,-.22,.305]],.006,mat(0x8c6556,.65),10);tube(head,[[.22,-.11,.255],[.18,-.19,.29],[.115,-.22,.305]],.006,mat(0x8c6556,.65),10);sphere(head,skin,[0,-.315,.235],[.13,.055,.09],18);mesh(root,new THREE.BoxGeometry(.16,.055,.018),mat(0xc7aa6d,.34,.72),[-.29,1.5,.405]);sphere(root,mat(0xc7aa6d,.3,.8),[-.29,1.58,.405],[.022,.022,.015],10);}
  // Small lapel pin and belt buckle.
  sphere(root,mat(0xd1a15c,.25,.82),[-.29,1.55,.41],[.035,.035,.02],12);
  root.userData.head=head;root.userData.headHome=head.position.clone();return root;
