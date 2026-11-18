@@ -153,7 +153,7 @@ function renderGameState(state){
  $('#cropName').textContent=state.table?`${state.table.icon} ${state.table.name}`:`РАУНД ${state.round||1}`;
  const last=state.lastPlay,actor=last&&p.find(x=>x.id===last.playerId);
  const current=p.find(x=>x.id===state.currentId);
- const isPlayMessage=/выложил\\s+\\d+\\s+карт/i.test(state.message||'');
+ const isPlayMessage=/выложил\s+\d+\s+карт/i.test(state.message||'');
  $('#statusLine').textContent=isPlayMessage?(current?'Ход: '+current.name:'Карты выложены'):(state.message||'');
  const notice=$('#lastCards');
  if(last && actor && (state.phase==='playing'||state.phase==='rodeo')){
