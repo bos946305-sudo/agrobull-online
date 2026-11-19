@@ -111,7 +111,7 @@
     rematch.style.display=st&&st.phase==='finished'&&hostId===selfId?'block':'none';
     spec.style.display=observing()?'flex':'none';
     if(observing()){const list=spectators(),target=list[spectatorIndex%Math.max(1,list.length)];spec.querySelector('#specName').textContent=target?'👁 '+target.name:'👁 Нет игроков';}
-    const mat=typeof cardBackMaterial!=='undefined'?cardBackMaterial:null;
+    const mat=window.__agroCardBackMaterial||null;
     if(mat&&mat.color){const selected=backs.find(x=>x.id===M.selected)||backs[0];mat.color.setHex(selected.color);}
   },300);
   save();
