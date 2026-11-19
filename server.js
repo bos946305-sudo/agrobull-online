@@ -458,37 +458,51 @@ io.on('connection', socket => {
     broadcastState(room);
   });
 
-  socket.on('playCards', (data = {}) => {
+  socket.on('playCards', (data = {}, acknowledge) => {
+    const reply = (ok, message) => {
+      if (typeof acknowledge === 'function') acknowledge({ ok, message: message || '' });
+      if (!ok && message) roomError(socket, message);
+    };
     const room = roomFor(socket);
     const game = room?.game;
     const player = room && playerById(room, socket.data.playerId);
-    if (!room || !game || game.phase !== 'playing' || !player || !player.alive) return;
-    if (game.currentId !== player.id) return roomError(socket, 'Сейчас ход другого игрока.');
+    if (!room || !game || game.phase !== 'playing' || !player || !player.alive) {
+      reply(false, 'Сейчас нельзя выкладывать карты.');
+      return;
+    }
+    if (game.currentId !== player.id) {
+      reply(false, 'Сейчас ход другого игрока.');
+      return;
+    }
     const indexes = Array.isArray(data.indexes) ? [...new Set(data.indexes.map(Number))] : [];
-    if (indexes.length < 1 || indexes.length > 3 || indexes.some(i => !Number.isInteger(i) || i < 0 || i >= player.hand.length)) return roomError(socket, 'Выбери от 1 до 3 карт.');
+    if (indexes.length < 1 || indexes.length > 3 || indexes.some(i => !Number.isInteger(i) || i < 0 || i >= player.hand.length)) {
+      reply(false, 'Выбери от 1 до 3 карт.');
+      return;
+    }
     const cards = indexes.sort((a, b) => b - a).map(i => player.hand.splice(i, 1)[0]).reverse();
     game.pileCount += cards.length;
     game.lastPlay = { playerId: player.id, cards };
     game.reveal = null;
     game.message = `${player.name} выложил ${cards.length} карт рубашкой вверх.`;
-    // In a 1-v-1 endgame, emptying your hand triggers an automatic challenge.
-    // The only opponent checks the final play: the liar rides, otherwise the challenger rides.
     const survivors = activePlayers(room);
     if (player.hand.length === 0 && survivors.length === 2) {
       const automaticCaller = survivors.find(p => p.id !== player.id && p.hand.length > 0);
       if (automaticCaller) {
         game.currentId = automaticCaller.id;
         resolveCall(room, automaticCaller);
+        reply(true);
         return;
       }
     }
     const next = nextPlayerWithCards(room, player.id);
     if (!next) {
       finishGame(room, player.id);
+      reply(true);
       return;
     }
     game.currentId = next.id;
     broadcastState(room);
+    reply(true);
   });
 
   socket.on('callBluff', () => {
