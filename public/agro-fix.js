@@ -1,7 +1,12 @@
 /* AGROBULL FIX — safe client-side refinements */
 (() => {
   'use strict';
-  if (typeof THREE === 'undefined' || typeof renderer === 'undefined' || !renderer || typeof socket === 'undefined') return;
+  // The main client keeps renderer in a module/lexical scope; use its explicit public reference.
+  const renderer = window.__agroRenderer;
+  if (typeof THREE === 'undefined' || !renderer || typeof socket === 'undefined') {
+    console.warn('AGROBULL FIX: 3D core is not ready; optional refinements skipped.');
+    return;
+  }
 
   // Restore the saloon colour grade and the lightning overlay used by the render loop.
   const style = document.createElement('style');
