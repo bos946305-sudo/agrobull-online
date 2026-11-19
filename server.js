@@ -21,6 +21,7 @@ const server = http.createServer(app);
 const io = new Server(server, { serveClient: true, cors: { origin: true, credentials: false } });
 require('./server-bots')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 require('./server-modes')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
+require('./server-resilience')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS, rooms, broadcastState, sendLobby, leaveCurrentRoom });
 
 app.disable('x-powered-by');
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', setHeaders(res, filePath) { if (/\.(?:html|js)$/i.test(filePath)) { res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.setHeader('Pragma', 'no-cache'); res.setHeader('Expires', '0'); } } }));
@@ -104,7 +105,7 @@ function personalizedState(room, viewerId) {
     winnerId: game.winnerId,
     players: room.players.map(p => ({
       id: p.id, name: p.name, character: p.character, skin: p.skin,
-      alive: p.alive, rides: p.rides, fallAt: p.fallAt,
+      alive: p.alive, rides: p.rides, fallAt: 6,
       handCount: p.hand.length,
       ability: skillFor(p),
       abilityUsed: !!p.abilityUsed,
@@ -218,7 +219,7 @@ function resolveCall(room, caller) {
     playerId: loser.id,
     callerId: caller.id,
     level: loser.rides,
-    threshold: loser.fallAt,
+    threshold: out ? loser.rides : 6,
     out,
     startedAt: Date.now(),
     isLie,
@@ -515,7 +516,7 @@ io.on('connection', socket => {
   });
 
   socket.on('leaveRoom', () => leaveCurrentRoom(socket));
-  socket.on('disconnect', () => leaveCurrentRoom(socket));
+  socket.on('disconnect', () => { if (!(io.onDisconnect && io.onDisconnect(socket))) leaveCurrentRoom(socket); });
 });
 
 function leaveCurrentRoom(socket) {
