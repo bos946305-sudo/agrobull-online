@@ -15,6 +15,7 @@ const CROPS = [
   { id: 'k', name: 'Морковь', icon: '🥕' }
 ];
 const rooms = new Map();
+const quickQueue = [];
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: true, cors: { origin: true, credentials: false } });
@@ -164,6 +165,15 @@ function dealRound(room, afterId = null) {
   };
   broadcastState(room);
 }
+function startRoomGame(room) {
+  if (!room || rooms.get(room.code) !== room || room.game) return false;
+  if (room.players.length < MIN_PLAYERS || !room.players.every(p => p.ready && p.connected)) return false;
+  for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); p.abilityUsed = false; }
+  room.game = { gameId: id(), round: 0 };
+  dealRound(room);
+  return true;
+}
+
 function resolveCall(room, caller) {
   const game = room.game;
   const last = game.lastPlay;
@@ -204,6 +214,11 @@ function resolveCall(room, caller) {
     dealRound(currentRoom, loser.id);
   }, 5200);
 }
+function removeQuickQueue(socket) {
+  for (let i = quickQueue.length - 1; i >= 0; i--) {
+    if (quickQueue[i].socket === socket) quickQueue.splice(i, 1);
+  }
+}
 function roomError(socket, message) { socket.emit('roomError', { message }); }
 
 io.on('connection', socket => {
@@ -222,7 +237,51 @@ io.on('connection', socket => {
     socket.to(room.code).emit('emote', { from: sender.id, to: target.id, e: data.e });
   });
 
+  socket.on('quickPlay', (data = {}) => {
+    if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
+    removeQuickQueue(socket);
+    const profile = profileFrom(data);
+    let waiting = null;
+    while (quickQueue.length) {
+      const candidate = quickQueue.shift();
+      if (candidate.socket.connected && !candidate.socket.data.roomCode && candidate.socket !== socket) {
+        waiting = candidate;
+        break;
+      }
+    }
+    if (!waiting) {
+      quickQueue.push({ socket, profile });
+      socket.emit('quickSearching');
+      return;
+    }
+
+    const code = roomCode();
+    const hostPlayer = {
+      id: id(), socketId: waiting.socket.id, ...waiting.profile,
+      ready: true, connected: true, alive: true, rides: 0,
+      fallAt: 2 + Math.floor(Math.random() * 4), hand: [], abilityUsed: false
+    };
+    const guestPlayer = {
+      id: id(), socketId: socket.id, ...profile,
+      ready: true, connected: true, alive: true, rides: 0,
+      fallAt: 2 + Math.floor(Math.random() * 4), hand: [], abilityUsed: false
+    };
+    const room = { code, hostId: hostPlayer.id, players: [hostPlayer, guestPlayer], game: null };
+    rooms.set(code, room);
+    waiting.socket.data.roomCode = code;
+    waiting.socket.data.playerId = hostPlayer.id;
+    socket.data.roomCode = code;
+    socket.data.playerId = guestPlayer.id;
+    waiting.socket.join(code);
+    socket.join(code);
+    waiting.socket.emit('joined', { playerId: hostPlayer.id, roomCode: code });
+    socket.emit('joined', { playerId: guestPlayer.id, roomCode: code });
+    sendLobby(room);
+    setTimeout(() => startRoomGame(room), 8000);
+  });
+
   socket.on('createRoom', (data = {}) => {
+    removeQuickQueue(socket);
     if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
     const profile = profileFrom(data);
     const code = roomCode();
@@ -241,6 +300,7 @@ io.on('connection', socket => {
   });
 
   socket.on('joinRoom', (data = {}) => {
+    removeQuickQueue(socket);
     if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
     const code = String(data.code || '').trim().toUpperCase().slice(0, 4);
     const room = rooms.get(code);
@@ -274,9 +334,7 @@ io.on('connection', socket => {
     if (!room || socket.data.playerId !== room.hostId) return roomError(socket, 'Начать игру может только хост.');
     if (room.players.length < MIN_PLAYERS) return roomError(socket, 'Нужно минимум 2 игрока.');
     if (!room.players.every(p => p.ready && p.connected)) return roomError(socket, 'Дождись готовности всех игроков.');
-    for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); p.abilityUsed = false; }
-    room.game = { gameId: id(), round: 0 };
-    dealRound(room);
+    startRoomGame(room);
   });
 
 
@@ -304,7 +362,7 @@ io.on('connection', socket => {
     }
 
     if (skill.id === 'peek') {
-      if (game.phase !== 'playing' || !player.alive || game.currentId !== player.id) return roomError(socket, 'Подглядывать можно только в свой ход.');
+      if (game.phase !== 'playing' || !player.alive) return roomError(socket, 'Подглядывать можно только во время игры.');
       const target = playerById(room, data.targetId);
       if (!target || !target.alive || target.id === player.id || !target.hand.length) return roomError(socket, 'Выбери соперника, у которого остались карты.');
       player.abilityUsed = true;
@@ -407,6 +465,7 @@ io.on('connection', socket => {
 });
 
 function leaveCurrentRoom(socket) {
+  removeQuickQueue(socket);
   const code = socket.data.roomCode;
   const room = code && rooms.get(code);
   if (!room) return;
