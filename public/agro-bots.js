@@ -10,6 +10,7 @@
 
   let practicePending = false;
   let practiceStarting = false;
+  let practiceExpectedBots = 0;
   let practiceTimeout = null;
 
   const practiceButton = document.createElement('button');
@@ -36,6 +37,7 @@
     if (!socket.connected) return notify('Нет соединения с сервером');
     practicePending = true;
     practiceStarting = false;
+    practiceExpectedBots = 0;
     clearTimeout(practiceTimeout);
     practiceButton.disabled = true;
     practiceButton.textContent = 'Подготавливаем матч…';
@@ -52,10 +54,12 @@
   socket.on('botsQueued', data => {
     if (practicePending) {
       const count = Number(data && data.count) || 0;
+      practiceExpectedBots = count;
       notify(count ? 'Подключаем ' + count + ' ботов…' : 'Подготавливаем ботов…');
       practiceTimeout = setTimeout(() => {
         if (!practicePending || practiceStarting) return;
         practicePending = false;
+        practiceExpectedBots = 0;
         practiceButton.disabled = false;
         practiceButton.textContent = '🤖 Играть против ботов';
         notify('Не все боты подключились. Добавь их из лобби или попробуй ещё раз.');
@@ -68,6 +72,7 @@
   socket.on('botsError', data => {
     practicePending = false;
     practiceStarting = false;
+    practiceExpectedBots = 0;
     clearTimeout(practiceTimeout);
     practiceButton.disabled = false;
     practiceButton.textContent = '🤖 Играть против ботов';
@@ -89,9 +94,11 @@
       if (Number(countSelect.value) > free) countSelect.value = String(Math.max(1, free));
     }
 
-    if (practicePending && !practiceStarting && data.canStart && (data.players || []).length === (data.maxPlayers || 4)) {
+    const joinedBots=(data.players||[]).filter(player=>String(player.name||'').startsWith('Бот ')).length;
+    if (practicePending && !practiceStarting && practiceExpectedBots>0 && joinedBots>=practiceExpectedBots && data.canStart) {
       practiceStarting = true;
       practicePending = false;
+      practiceExpectedBots = 0;
       clearTimeout(practiceTimeout);
       practiceButton.textContent = 'Запускаем матч…';
       setTimeout(() => socket.emit('startGame'), 550);
@@ -110,6 +117,7 @@
     if (!practicePending && !practiceStarting) return;
     practicePending = false;
     practiceStarting = false;
+    practiceExpectedBots = 0;
     clearTimeout(practiceTimeout);
     practiceButton.disabled = false;
     practiceButton.textContent = '🤖 Играть против ботов';
@@ -125,6 +133,7 @@
   $('#leaveBtn')?.addEventListener('click', () => {
     practicePending = false;
     practiceStarting = false;
+    practiceExpectedBots = 0;
     clearTimeout(practiceTimeout);
     practiceButton.disabled = false;
     practiceButton.textContent = '🤖 Играть против ботов';
