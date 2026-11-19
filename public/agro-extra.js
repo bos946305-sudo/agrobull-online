@@ -1,9 +1,14 @@
 /* AGROBULL EXTRA — settings, saloon atmosphere, stats and table gestures */
 (() => {
   'use strict';
-  if (typeof THREE === 'undefined' || typeof renderer === 'undefined' || !renderer ||
+  // Use the renderer exported by the main 3D script; bare renderer is lexical, not global.
+  const renderer = window.__agroRenderer;
+  if (typeof THREE === 'undefined' || !renderer ||
       typeof socket === 'undefined' || !socket || typeof scene === 'undefined' || !scene ||
-      typeof camera === 'undefined' || !camera) return;
+      typeof camera === 'undefined' || !camera) {
+    console.warn('AGROBULL EXTRA: 3D core is not ready; optional extras skipped.');
+    return;
+  }
 
   const T = THREE;
   const $ = selector => document.querySelector(selector);
