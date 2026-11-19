@@ -3,6 +3,23 @@
   'use strict';
   if (typeof THREE === 'undefined' || typeof renderer === 'undefined' || !renderer || typeof socket === 'undefined') return;
 
+  // Restore the saloon colour grade and the lightning overlay used by the render loop.
+  const style = document.createElement('style');
+  style.textContent =
+    '.overlay{background:radial-gradient(circle at 18% 18%,rgba(255,61,129,.22),transparent 46%),radial-gradient(circle at 84% 26%,rgba(25,195,214,.22),transparent 46%),radial-gradient(circle at 50% 96%,rgba(255,176,46,.2),transparent 52%),rgba(5,3,6,.76)!important}' +
+    '#grade{position:fixed;inset:0;z-index:2;pointer-events:none;mix-blend-mode:soft-light;background:linear-gradient(135deg,rgba(255,64,129,.2),rgba(0,190,210,.17) 55%,rgba(255,170,40,.19));animation:agroHue 45s linear infinite}' +
+    '@keyframes agroHue{to{filter:hue-rotate(360deg)}}' +
+    '#agroLightning{position:fixed;inset:0;z-index:9;pointer-events:none;background:#dceaff;opacity:0}' +
+    '#quickBtn{width:100%;margin-top:10px;background:linear-gradient(180deg,#2fb7a4,#17665c);border-color:#7ff0dd}';
+  document.head.appendChild(style);
+  const grade = document.createElement('div');
+  grade.id = 'grade';
+  document.body.appendChild(grade);
+  const lightningOverlay = document.createElement('div');
+  lightningOverlay.id = 'agroLightning';
+  document.body.appendChild(lightningOverlay);
+  if (scene && scene.fog) scene.fog.density = Math.min(scene.fog.density || .024, .017);
+
   // Peek presentation and target selection are handled by the main 3D client.
   // Do not create the old 2D card fan or the duplicate dropdown here.
 
