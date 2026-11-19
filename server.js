@@ -20,6 +20,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: true, cors: { origin: true, credentials: false } });
 require('./server-bots')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
+require('./server-modes')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 
 app.disable('x-powered-by');
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', setHeaders(res, filePath) { if (/\.(?:html|js)$/i.test(filePath)) { res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.setHeader('Pragma', 'no-cache'); res.setHeader('Expires', '0'); } } }));
