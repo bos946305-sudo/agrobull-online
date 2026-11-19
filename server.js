@@ -22,7 +22,7 @@ const io = new Server(server, { serveClient: true, cors: { origin: true, credent
 require('./server-bots')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 
 app.disable('x-powered-by');
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', setHeaders(res, filePath) { if (/\.(?:html|js)$/i.test(filePath)) { res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.setHeader('Pragma', 'no-cache'); res.setHeader('Expires', '0'); } } }));
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'AGROBULL online', rooms: rooms.size }));
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
