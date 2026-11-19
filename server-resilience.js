@@ -6,7 +6,7 @@ module.exports = function attachResilience(io, ctx = {}) {
   if (![roomFor, rooms, broadcastState, sendLobby, leaveCurrentRoom].every(Boolean)) {
     throw new Error('server-resilience: missing room/state callbacks');
   }
-  const GRACE_MS = 60000, MAX_IP = 8, penalties = new Map(), ipCounts = new Map();
+  const GRACE_MS = 60000, MAX_IP = 8, penalties = new Map(), ipCounts = new Map(), offlineTurns = new Map();
   const ipOf = socket => String(socket.handshake.headers['x-forwarded-for'] || socket.handshake.address || 'unknown').split(',')[0].trim();
 
   function penalize(deviceId) {
@@ -115,6 +115,34 @@ module.exports = function attachResilience(io, ctx = {}) {
 
     socket.on('ping2', (_sentAt, ack) => { if (typeof ack === 'function') ack(); });
   });
+
+  const offlineTick = setInterval(() => {
+    for (const room of rooms.values()) {
+      const game = room.game;
+      if (!game || game.phase !== 'playing' || !game.currentId) { offlineTurns.delete(room.code); continue; }
+      const player = room.players.find(p => p.id === game.currentId);
+      if (!player || player.connected !== false) { offlineTurns.delete(room.code); continue; }
+      const key = [game.gameId, game.round, game.pileCount, game.currentId, game.lastPlay?.playerId || ''].join('|');
+      let turn = offlineTurns.get(room.code);
+      if (!turn || turn.key !== key) { offlineTurns.set(room.code, { key, at: Date.now() + 8000 }); continue; }
+      if (Date.now() < turn.at) continue;
+      const ghost = player._sock;
+      if (!ghost) { turn.at = Date.now() + 1000; continue; }
+      try {
+        const noOtherHands = !room.players.some(p => p.alive && p.id !== player.id && p.hand.length > 0);
+        if (game.lastPlay && game.lastPlay.playerId !== player.id && noOtherHands) {
+          const handler = ghost.listeners('callBluff')[0];
+          if (handler) handler();
+        } else {
+          const handler = ghost.listeners('playCards')[0];
+          if (handler && player.hand.length) handler({ indexes: [Math.floor(Math.random() * player.hand.length)] });
+        }
+      } catch (error) { console.error('[server-resilience] offline turn failed:', error); }
+      turn.at = Date.now() + 8000;
+    }
+    for (const code of offlineTurns.keys()) if (!rooms.has(code)) offlineTurns.delete(code);
+  }, 1000);
+  if (typeof offlineTick.unref === 'function') offlineTick.unref();
 
   io.onDisconnect = socket => {
     const { room, player } = playerOf(socket);
