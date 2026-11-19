@@ -30,7 +30,7 @@ for (const file of checked) {
 
 const htmlPath = path.join(publicDir, 'index.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
-const inlineScripts = [...html.matchAll(/<script\\b(?![^>]*\\bsrc=)[^>]*>([\\s\\S]*?)<\\/script>/gi)];
+const inlineScripts = [...html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)];
 if (!inlineScripts.length) failures.push('public/index.html: no inline game script found');
 inlineScripts.forEach((match, index) => {
   if (!match[1].trim()) return;
@@ -41,9 +41,9 @@ inlineScripts.forEach((match, index) => {
   }
 });
 
-for (const match of html.matchAll(/<script\\b[^>]*\\bsrc=["']([^"']+)["'][^>]*>/gi)) {
+for (const match of html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)) {
   const src = match[1];
-  if (/^(https?:)?\\/\\//i.test(src) || src.startsWith('/socket.io/')) continue;
+  if (/^(https?:)?\/\//i.test(src) || src.startsWith('/socket.io/')) continue;
   const file = path.resolve(publicDir, '.' + (src.startsWith('/') ? src : '/' + src));
   if (!file.startsWith(publicDir + path.sep) || !fs.existsSync(file)) {
     failures.push('public/index.html references missing script: ' + src);
