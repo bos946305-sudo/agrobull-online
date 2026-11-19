@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check server-bots.js && node --check server-modes.js && node --check server-resilience.js && node --check public/agro-bots.js && node --check public/agro-resume.js && node --check public/agro-meta.js",
+    "check": "node scripts/check-project.js",
     "prestart": "npm run check"
   },
   "engines": {
@@ -17,4 +17,4 @@
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1"
   }
-}
+}\n
