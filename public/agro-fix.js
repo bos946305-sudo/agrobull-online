@@ -3,67 +3,8 @@
   'use strict';
   if (typeof THREE === 'undefined' || typeof renderer === 'undefined' || !renderer || typeof socket === 'undefined') return;
 
-  const style = document.createElement('style');
-  style.textContent = '#peekHold{position:fixed;left:50%;bottom:-300px;transform:translateX(-50%);z-index:80;display:flex;pointer-events:none;transition:bottom .5s cubic-bezier(.2,1.3,.4,1)}#peekHold.on{bottom:8px}#peekHold .pc{width:clamp(70px,9vw,104px);height:clamp(102px,13vw,150px);margin:0 -10px;border-radius:12px;border:2px solid #ead9b9;background:linear-gradient(145deg,#fff9e9,#d8c4a0);color:#38291e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;box-shadow:0 18px 34px #000b,0 0 22px #3dd6c455;transform-origin:50% 130%}#peekHold .pc b{font-size:clamp(28px,4vw,46px)}#peekHold .pc small{font:800 9px Inter,sans-serif;letter-spacing:.5px;text-transform:uppercase}#peekTag{position:fixed;left:50%;bottom:178px;transform:translateX(-50%);z-index:81;padding:6px 14px;border-radius:999px;background:rgba(8,27,29,.92);border:1px solid #5fbea9;color:#bff7ea;font:700 11px Inter,sans-serif;opacity:0;transition:.3s;pointer-events:none}#peekTag.on{opacity:1}#quickBtn{width:100%;margin-top:10px;background:linear-gradient(180deg,#2fb7a4,#17665c);border-color:#7ff0dd}@media(max-width:900px){#statusLine{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}';
-  document.head.appendChild(style);
-
-  const hold = document.createElement('div');
-  hold.id = 'peekHold';
-  const tag = document.createElement('div');
-  tag.id = 'peekTag';
-  document.body.append(hold, tag);
-  let hidePeekTimer;
-
-  // Private cards are delivered only to the player who used Jesse's skill.
-  showPhysicalPeek = function(data) {
-    const cards = (data && Array.isArray(data.cards) ? data.cards : []).slice(0, 5);
-    const mid = (cards.length - 1) / 2;
-    hold.replaceChildren();
-    cards.forEach((card, i) => {
-      const el = document.createElement('div');
-      el.className = 'pc';
-      el.style.transform = 'rotate(' + ((i-mid)*11) + 'deg) translateY(' + (Math.abs(i-mid)*10) + 'px)';
-      const icon = document.createElement('b');
-      icon.textContent = card.icon || '?';
-      const name = document.createElement('small');
-      name.textContent = card.name || '';
-      el.append(icon, name);
-      hold.append(el);
-    });
-    tag.textContent = 'Карты: ' + ((data && data.name) || 'соперника');
-    hold.classList.add('on');
-    tag.classList.add('on');
-    clearTimeout(hidePeekTimer);
-    hidePeekTimer = setTimeout(() => {
-      hold.classList.remove('on');
-      tag.classList.remove('on');
-    }, 6500);
-  };
-
-  // Jesse can peek during any playing turn; server-side authorization is adjusted too.
-  const originalRenderGameState = renderGameState;
-  renderGameState = function(state) {
-    originalRenderGameState(state);
-    try {
-      const players = state.players || [];
-      const me = players.find(p => p.id === selfId);
-      const root = $('#skillControls');
-      if (me && me.ability && me.ability.id === 'peek' && !me.abilityUsed && me.alive &&
-          state.phase === 'playing' && state.currentId !== selfId && !root.querySelector('select')) {
-        const targets = players.filter(p => p.alive && p.id !== selfId && p.handCount > 0);
-        if (targets.length) {
-          addSkillTarget(root, '👁 ПОДГЛЯДЕТЬ', targets,
-            targetId => socket.emit('useAbility', { type: 'peek', targetId }));
-          root.style.display = 'flex';
-        }
-      }
-      const status = $('#statusLine');
-      if (status && /обмен|поменял/i.test(status.textContent)) {
-        const current = players.find(p => p.id === state.currentId);
-        status.textContent = current ? 'Ход: ' + current.name : '';
-      }
-    } catch (_) {}
-  };
+  // Peek presentation and target selection are handled by the main 3D client.
+  // Do not create the old 2D card fan or the duplicate dropdown here.
 
   const syncEmoteVisibility = () => {
     const bar = document.querySelector('#emoBar');
