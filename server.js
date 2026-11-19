@@ -179,26 +179,54 @@ function resolveCall(room, caller) {
   const game = room.game;
   const last = game.lastPlay;
   if (!last || game.phase !== 'playing') return;
-  const isLie = last.cards.some(card => card.id !== game.table.id && card.id !== 'b');
+
+  // A crop card must match the declared table crop. The bull is a wild card.
+  const cardResults = last.cards.map(card => ({
+    ...card,
+    isWild: card.id === 'b',
+    matchesTable: card.id === game.table.id || card.id === 'b'
+  }));
+  const falseCards = cardResults.filter(card => !card.matchesTable);
+  const validCards = cardResults.filter(card => card.matchesTable);
+  const isLie = falseCards.length > 0;
+  const playedBy = playerById(room, last.playerId);
   const loser = playerById(room, isLie ? last.playerId : caller.id);
-  const liar = playerById(room, last.playerId);
-  if (!loser || !loser.alive) return;
+  if (!loser || !loser.alive || !playedBy) return;
+
   loser.rides += 1;
   const out = loser.rides >= loser.fallAt;
   game.phase = 'rodeo';
   game.currentId = null;
-  game.reveal = { cards: last.cards, isLie, callerId: caller.id, loserId: loser.id };
+  game.reveal = {
+    cards: cardResults,
+    table: { ...game.table },
+    isLie,
+    callerId: caller.id,
+    callerName: caller.name,
+    playedById: playedBy.id,
+    playedByName: playedBy.name,
+    loserId: loser.id,
+    loserName: loser.name,
+    falseCards,
+    validCards,
+    reason: isLie
+      ? 'Есть карта, которая не совпадает с культурой на столе. Бык считается джокером.'
+      : 'Все карты совпадают с культурой на столе или являются быками.'
+  };
   game.rodeo = {
     playerId: loser.id,
     callerId: caller.id,
     level: loser.rides,
     threshold: loser.fallAt,
     out,
-    startedAt: Date.now()
+    startedAt: Date.now(),
+    isLie,
+    playedById: playedBy.id,
+    falseCardCount: falseCards.length
   };
   game.message = isLie
-    ? `Блеф раскрыт! ${liar?.name || 'Игрок'} соврал — на быка!`
-    : `Карты честные. ${caller.name} ошибся — на быка!`;
+    ? `БЛЕФ РАСКРЫТ: ${playedBy.name} положил ${falseCards.map(card => card.name).join(', ')} вместо ${game.table.name}. ${caller.name} правильно раскрыл блеф — ${loser.name} на быка!`
+    : `ОБВИНЕНИЕ ОШИБОЧНО: карты ${playedBy.name} соответствуют столу (${game.table.name}) или являются быками. ${caller.name} ошибся — на быка!`;
   broadcastState(room);
 
   const code = room.code;
