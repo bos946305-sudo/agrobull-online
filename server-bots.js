@@ -12,7 +12,6 @@ const BOTS = [
   { n: 'Бот Хаос', ch: 'jesse', skin: 'neon', bluff: 0.50, sus: 0.50, wild: 1 }
 ];
 const NOISE = { easy: 0.70, normal: 0.30, hard: 0.12 };
-const TURN_MS = 30_000;
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 module.exports = function attachBots(io, ctx = {}) {
@@ -255,6 +254,8 @@ module.exports = function attachBots(io, ctx = {}) {
       if (room) liveRooms.add(room);
     }
     for (const room of liveRooms) {
+      const settings = typeof io.settingsOf === 'function' ? io.settingsOf(room.code) : null;
+      const turnMs = Math.max(5, Number(settings && settings.turnSec) || 30) * 1000;
       const game = room.game;
       if (!game || game.phase !== 'playing' || !game.currentId) {
         turnTimers.delete(room.code);
@@ -264,7 +265,7 @@ module.exports = function attachBots(io, ctx = {}) {
         game.lastPlay ? game.lastPlay.cards.length : 0].join('|');
       let timer = turnTimers.get(room.code);
       if (!timer || timer.key !== key) {
-        timer = { key, deadline: Date.now() + TURN_MS };
+        timer = { key, deadline: Date.now() + turnMs };
         turnTimers.set(room.code, timer);
         io.to(room.code).emit('turnTimer', { id: game.currentId, deadline: timer.deadline });
         continue;
@@ -274,11 +275,11 @@ module.exports = function attachBots(io, ctx = {}) {
       const player = room.players.find(p => p.id === game.currentId);
       const playerSocket = player && io.sockets.sockets.get(player.socketId);
       if (!player || !playerSocket || !player.hand.length) {
-        timer.deadline = Date.now() + TURN_MS;
+        timer.deadline = Date.now() + turnMs;
         io.to(room.code).emit('turnTimer', { id: game.currentId, deadline: timer.deadline });
         continue;
       }
-      timer.deadline = Date.now() + TURN_MS;
+      timer.deadline = Date.now() + turnMs;
       io.to(room.code).emit('turnTimer', { id: game.currentId, deadline: timer.deadline });
       const noOtherHands = !room.players.some(p => p.alive && p.id !== player.id && p.hand.length > 0);
       io.to(room.code).emit('chat', { from: 'timer', name: '⏱', t: player.name + ': время вышло' });
