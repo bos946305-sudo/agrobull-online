@@ -38,6 +38,8 @@ module.exports = function attach(io, ctx = {}) {
       next();
     });
 
+    socket.on('getSettings', () => { const r = roomFor(socket); if (r) socket.emit('settings', SET.get(r.code) || def()); });
+
     socket.on('setSettings', (d = {}) => {
       const r = roomFor(socket); if (!r || r.game || socket.data.playerId !== r.hostId) return;
       const lo = clamp(d.fallMin, 1, 5, 2), hi = clamp(d.fallMax, lo, 6, 5);
