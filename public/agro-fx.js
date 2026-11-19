@@ -2,8 +2,13 @@
    Load after the main game script and agro-ui.js. */
 (() => {
   'use strict';
-  if (typeof THREE === 'undefined' || typeof renderer === 'undefined' || !renderer ||
-      typeof socket === 'undefined' || !socket || typeof actorModels === 'undefined') return;
+  // renderer lives in the main client's lexical scope; auxiliary scripts use its exported handle.
+  const renderer = window.__agroRenderer;
+  if (typeof THREE === 'undefined' || !renderer ||
+      typeof socket === 'undefined' || !socket || typeof actorModels === 'undefined') {
+    console.warn('AGROBULL FX: 3D core is not ready; optional effects skipped.');
+    return;
+  }
 
   const T=THREE, rnd=Math.random, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const ease=k=>k*k*(3-2*k), wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
