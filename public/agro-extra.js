@@ -270,9 +270,9 @@
     if (obj.isDirectionalLight) directionalLights.push({ light: obj, base: obj.intensity });
   });
   const dayProfiles = {
-    eve: { hemi: 0x9cacc7, hemiI: 1.28, key: 0xffd5a0, keyI: 3.0, bg: 0x24170f },
-    night: { hemi: 0x7185ba, hemiI: .95, key: 0x9bbcff, keyI: 2.0, bg: 0x101a2a },
-    dawn: { hemi: 0xffa7c4, hemiI: 1.2, key: 0xffc19c, keyI: 2.65, bg: 0x28131c }
+    eve: { hemi: 0xbac9db, hemiI: 1.55, key: 0xffd5a0, keyI: 3.2, bg: 0x4b3528 },
+    night: { hemi: 0x91a6d0, hemiI: 1.22, key: 0x9bbcff, keyI: 2.55, bg: 0x28364c },
+    dawn: { hemi: 0xffb8cf, hemiI: 1.4, key: 0xffc19c, keyI: 2.9, bg: 0x4e3440 }
   };
   const colorTemp = new T.Color();
   let lightning = 0;
