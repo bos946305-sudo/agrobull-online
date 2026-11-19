@@ -61,6 +61,14 @@
 }
 @media(prefers-reduced-motion:reduce){#lastCards,.playingcard,.action{transition:none}}
 
+/* Compact HUD: keep crop and turn away from the centre of the table. */
+#centerinfo{top:auto;left:auto;right:12px;bottom:174px;transform:none;width:min(205px,24vw);text-align:left}
+#centerinfo .glass{padding:7px 10px;border-radius:10px;background:rgba(10,17,16,.8);border-color:rgba(208,173,113,.22)}
+#centerinfo .cropname{font-size:14px;letter-spacing:1px}
+#centerinfo .statusline{font-size:9px;line-height:1.3}
+#vignette{background:radial-gradient(ellipse at 50% 48%,transparent 58%,rgba(0,0,0,.2) 100%)}
+#filmgrain{opacity:.02}
+@media(max-width:700px){#centerinfo{right:7px;bottom:158px;width:min(145px,37vw)}#centerinfo .glass{padding:5px 7px}#centerinfo .cropname{font-size:12px}#centerinfo .statusline{font-size:8px}}
 /* Click a rival to use the peek skill. */
 .peekTarget{pointer-events:auto;cursor:pointer;border-color:rgba(92,218,186,.8)!important;box-shadow:0 0 0 1px rgba(92,218,186,.22),0 0 18px rgba(55,190,160,.2)!important}.peekTarget:after{content:'👁';margin-left:auto;font-size:13px;color:#9fffe2}.peekTarget:hover{background:rgba(25,100,80,.35)}
 </style>
@@ -182,7 +190,7 @@ function renderGameState(state){
  }
  const hand=me?.hand||[];const handKey=`${state.round}|${hand.map(c=>c.id).join(',')}`;if(handKey!==lastHandKey){selected.clear();lastHandKey=handKey}
  $('#hand').innerHTML='';hand.forEach((card,index)=>{const b=document.createElement('button');b.className='playingcard'+(card.id==='b'?' bull':'')+(selected.has(index)?' selected':'');b.innerHTML=`<span class="corner">${card.id==='b'?'★':'AG'}</span><span class="sym">${card.icon}</span><span class="label">${card.name}</span>`;b.onclick=()=>{if(!isMyTurn)return;if(selected.has(index))selected.delete(index);else if(selected.size<3)selected.add(index);renderGameState({...state,players:state.players});};$('#hand').append(b)});
- $('#playBtn').disabled=!isMyTurn||selected.size===0;$('#callBtn').disabled=!isMyTurn||!last;
+ $('#playBtn').disabled=!isMyTurn||selected.size===0||playRequestPending;$('#callBtn').disabled=!isMyTurn||!last;
  $('#hint').textContent=isMyTurn?(last?'Твой ход: продолжай или проверь предыдущий блеф':'Твой ход: выбери 1–3 карты'):(state.phase==='rodeo'?'Смотри на быка…':'Ожидание хода соперника');
  if(state.phase==='rodeo'&&state.rodeo){const loser=p.find(x=>x.id===state.rodeo.playerId);$('#statusLine').textContent=`${loser?.name||'Игрок'} на быке — уровень ${state.rodeo.level}/${state.rodeo.threshold}`}
  if(state.phase==='playing'&&state.currentId===selfId)$('#hint').textContent=last?'Проверить блеф или выложить свои карты':'Твой ход — выложи карты';
@@ -197,7 +205,22 @@ function renderGameState(state){
  skillRoot.style.display=skillRoot.children.length?'flex':'none';
  if(state.phase==='finished'){$('#hint').textContent='Матч завершён'}
 }
-$('#playBtn').onclick=()=>{if(!selected.size)return;socket.emit('playCards',{indexes:[...selected]});selected.clear()};
+let playRequestPending=false;
+$('#playBtn').onclick=()=>{
+ if(!selected.size||playRequestPending)return;
+ if(!socket?.connected)return notify('Нет соединения с сервером');
+ const indexes=[...selected],button=$('#playBtn');
+ playRequestPending=true;button.disabled=true;button.textContent='Отправка…';
+ socket.timeout(7000).emit('playCards',{indexes},(err,result)=>{
+   playRequestPending=false;button.textContent='Выложить';
+   if(err||!result?.ok){
+     button.disabled=!(gameState?.currentId===selfId&&gameState?.phase==='playing'&&selected.size);
+     notify(result?.message||'Сервер не подтвердил ход. Попробуй ещё раз.');
+     return;
+   }
+   selected.clear();
+ });
+};
 $('#callBtn').onclick=()=>{socket.emit('callBluff');selected.clear()};
 function showResult(state){const winner=state.players.find(p=>p.id===state.winnerId),won=state.winnerId===selfId;let reward=0;if(!paidGames.includes(state.gameId)){reward=won?80:15;profile.coins+=reward;saveProfile();paidGames.push(state.gameId);paidGames=paidGames.slice(-60);localStorage.setItem('agrobull_paid_games',JSON.stringify(paidGames))}$('#resultTitle').textContent=won?'ТЫ — ХОЗЯИН АГРОБАРА':'МАТЧ ЗАВЕРШЁН';$('#resultText').textContent=won?'Ты пережил все выезды и покорил медного быка.':`Победитель: ${winner?.name||'неизвестен'}. Следующий раз удержишься дольше!`;$('#rewardText').textContent=`+${reward}`;showView('resultView')}
 $('#resultBack').onclick=()=>{socket.emit('leaveRoom');room=null;lobby=null;gameState=null;selfId=null;$('#roomPill').style.display='none';$('#leftpanel').innerHTML='';$('#hand').innerHTML='';lastHandKey='';selected.clear();showView('homeView')};
@@ -454,8 +477,9 @@ function createCharacter(player,index){
  sphere(root,mat(0xd1a15c,.25,.82),[-.29,1.55,.41],[.035,.035,.02],12);
  root.userData.head=head;root.userData.headHome=head.position.clone();return root;
 }
+function seatPositionsFor(count){if(count===2)return [[0,0,3.35],[0,0,-3.35]];if(count===3)return [[0,0,3.35],[-3.35,0,0],[3.35,0,0]];return [[0,0,3.35],[-3.35,0,0],[0,0,-3.35],[3.35,0,0]]}
 function syncCharacters(players){
- if(!worldReady)return;const keep=new Set();const positions=[[0,0,3.35],[-3.35,0,0],[0,0,-3.35],[3.35,0,0]];
+ if(!worldReady)return;const keep=new Set();const positions=seatPositionsFor(players.length);
  players.forEach((p,i)=>{keep.add(p.id);let record=actorModels.get(p.id);const sig=`${p.character}|${p.skin}`;if(!record||record.sig!==sig){if(record)scene.remove(record.group);const group=createCharacter(p,i);record={group,sig,base:positions[i]||positions[0],player:p};actorModels.set(p.id,record);scene.add(group)}record.player=p;record.base=positions[i]||positions[0];if(!rodeomotion||rodeomotion.playerId!==p.id){record.group.position.set(record.base[0],0,record.base[2]-.4);record.group.rotation.y=Math.atan2(-record.base[0],-record.base[2]+.4)}record.group.visible=p.alive!==false&&p.id!==selfId;});
  for(const [pid,record] of actorModels){if(!keep.has(pid)){scene.remove(record.group);actorModels.delete(pid)}}
 }
@@ -471,7 +495,7 @@ function animate3d(){requestAnimationFrame(animate3d);if(!worldReady)return;cons
  if(revivePulse){const rec=actorModels.get(revivePulse.playerId),t=(performance.now()-revivePulse.startedAt)/1000;if(rec&&t<1.55){const k=Math.sin(Math.PI*t/1.55);rec.group.scale.setScalar(.78+.25*k);bullRig.root.position.y=.18+.22*k}else{if(rec)rec.group.scale.setScalar(.78);revivePulse=null}}
  if(peekMotion){const rec=actorModels.get(peekMotion.viewerId),t=(performance.now()-peekMotion.startedAt)/1000;const lean=t<4.1?Math.min(1,t/.42):Math.max(0,1-(t-4.1)/.55);if(rec?.group.userData.head){const head=rec.group.userData.head,home=rec.group.userData.headHome;head.position.z=home.z+.42*lean;head.rotation.x=.24*lean}if(t>4.7){if(rec?.group.userData.head){rec.group.userData.head.position.copy(rec.group.userData.headHome);rec.group.userData.head.rotation.x=0}peekMotion=null}}
  if(peekCardRig){const t=(performance.now()-peekCardRig.userData.startedAt)/1000;const k=Math.min(1,t/.24);const retreat=t>4.55?Math.max(0,1-(t-4.55)/.3):1;peekCardRig.scale.setScalar(k*retreat);peekCardRig.position.y=peekCardRig.userData.baseY+.008+Math.sin(t*2.2)*.006;if(t>4.9){scene.remove(peekCardRig);peekCardRig.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){o.material.map?.dispose();o.material.dispose()}});peekCardRig=null}}
- const players=gameState?.players||[],selfIndex=players.findIndex(p=>p.id===selfId),seat=[[0,0,3.35],[-3.35,0,0],[0,0,-3.35],[3.35,0,0]][selfIndex>=0?selfIndex:0];const seatYaw=Math.atan2(-seat[0],-seat[2]+.4),yaw=seatYaw+orbitYaw;const forward=v3(Math.sin(yaw),orbitPitch,Math.cos(yaw)).normalize();if(rodeomotion&&rodeomotion.playerId===selfId){camera.position.set(0,2.85,-4.82);camera.lookAt(1.15,1.85,-6.7)}else{camera.position.set(seat[0]+Math.sin(seatYaw)*.38,1.68,seat[2]-.4+Math.cos(seatYaw)*.38);if(peekMotion){const t=(performance.now()-peekMotion.startedAt)/1000;const lean=t<4.1?Math.min(1,t/.42):Math.max(0,1-(t-4.1)/.55);camera.position.add(forward.clone().multiplyScalar(.42*lean));camera.position.y-=.16*lean;camera.lookAt(peekMotion.focus)}else camera.lookAt(camera.position.clone().add(forward.multiplyScalar(9)))}renderer.render(scene,camera)}
+ const players=gameState?.players||[],selfIndex=players.findIndex(p=>p.id===selfId),seat=seatPositionsFor(players.length)[selfIndex>=0?selfIndex:0]||[0,0,3.35];const seatYaw=Math.atan2(-seat[0],-seat[2]+.4),yaw=seatYaw+orbitYaw;const forward=v3(Math.sin(yaw),orbitPitch,Math.cos(yaw)).normalize();if(rodeomotion&&rodeomotion.playerId===selfId){camera.position.set(0,2.85,-4.82);camera.lookAt(1.15,1.85,-6.7)}else{camera.position.set(seat[0]+Math.sin(seatYaw)*.38,1.68,seat[2]-.4+Math.cos(seatYaw)*.38);if(peekMotion){const t=(performance.now()-peekMotion.startedAt)/1000;const lean=t<4.1?Math.min(1,t/.42):Math.max(0,1-(t-4.1)/.55);camera.position.add(forward.clone().multiplyScalar(.42*lean));camera.position.y-=.16*lean;camera.lookAt(peekMotion.focus)}else camera.lookAt(camera.position.clone().add(forward.multiplyScalar(9)))}renderer.render(scene,camera)}
 function resize3d(){if(!renderer||!camera)return;lowPowerMode=(navigator.hardwareConcurrency||4)<=4||innerWidth<720;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPowerMode?1.05:1.55));renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.fov=innerWidth/innerHeight<1.3?72:68;camera.updateProjectionMatrix()}
 if(typeof THREE==='undefined'){$('#connectionStatus').textContent='Не загрузился Three.js. Проверь подключение к интернету.'}else createRoom();
 // React to new room/game snapshots and drive the 3D cast.
