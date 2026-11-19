@@ -19,6 +19,7 @@ const quickQueue = [];
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: true, cors: { origin: true, credentials: false } });
+require('./server-extras')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 
 app.disable('x-powered-by');
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
@@ -493,6 +494,10 @@ function leaveCurrentRoom(socket) {
     return;
   }
   if (room.hostId === playerId) room.hostId = room.players[0].id;
+  if (room.game && room.game.phase === 'finished') {
+    broadcastState(room);
+    return;
+  }
   if (room.game) {
     const alive = activePlayers(room);
     if (alive.length <= 1) finishGame(room, alive[0]?.id || null);
