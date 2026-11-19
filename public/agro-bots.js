@@ -107,7 +107,7 @@
   });
 
   socket.on('roomError', () => {
-    if (!practicePending) return;
+    if (!practicePending && !practiceStarting) return;
     practicePending = false;
     practiceStarting = false;
     clearTimeout(practiceTimeout);
