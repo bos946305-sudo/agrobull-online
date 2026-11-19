@@ -93,9 +93,10 @@
   const observing=()=>{const me=(gameState?.players||[]).find(p=>p.id===selfId);return !!(me&&me.alive===false&&['playing','rodeo'].includes(gameState.phase));};
   spec.querySelector('#specPrev').onclick=()=>{const n=spectators().length;spectatorIndex=(spectatorIndex+n-1)%Math.max(1,n);};
   spec.querySelector('#specNext').onclick=()=>{const n=spectators().length;spectatorIndex=(spectatorIndex+1)%Math.max(1,n);};
-  if(typeof renderer!=='undefined'&&renderer&&typeof renderer.render==='function'){
-    const previousRender=renderer.render.bind(renderer);
-    renderer.render=function(sc,cam){
+  const activeRenderer=window.__agroRenderer;
+  if(activeRenderer&&typeof activeRenderer.render==='function'){
+    const previousRender=activeRenderer.render.bind(activeRenderer);
+    activeRenderer.render=function(sc,cam){
       try{
         if(observing()&&cam===camera){
           const list=spectators(),target=list[spectatorIndex%Math.max(1,list.length)],rec=target&&actorModels.get(target.id);
