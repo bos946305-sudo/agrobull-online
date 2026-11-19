@@ -260,7 +260,7 @@ function makeLeatherTexture(){const c=document.createElement('canvas');c.width=c
 function createRoom(){
  scene=new THREE.Scene();scene.background=new THREE.Color(0x4b3528);scene.fog=new THREE.FogExp2(0x4b3528,.004);
  camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,90);camera.position.set(0,1.68,3.02);camera.lookAt(0,1.45,-5);scene.add(camera);
- renderer=new THREE.WebGLRenderer({canvas:$('#scene'),antialias:true,alpha:false,powerPreference:'high-performance'});lowPowerMode=(navigator.hardwareConcurrency||4)<=4||innerWidth<720;const lowPower=lowPowerMode;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPower?1.18:1.72));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;renderer.setClearColor(0x4b3528,1);if('outputEncoding'in renderer)renderer.outputEncoding=THREE.sRGBEncoding;
+ renderer=new THREE.WebGLRenderer({canvas:$('#scene'),antialias:true,alpha:false,powerPreference:'high-performance'});const __agroNativeRender=renderer.render.bind(renderer);window.__agroNativeRender=__agroNativeRender;window.__agroLastGoodRender=0;renderer.render=function(sceneArg,cameraArg){const result=__agroNativeRender(sceneArg,cameraArg);window.__agroLastGoodRender=performance.now();return result};lowPowerMode=(navigator.hardwareConcurrency||4)<=4||innerWidth<720;const lowPower=lowPowerMode;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPower?1.18:1.72));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;renderer.setClearColor(0x4b3528,1);if('outputEncoding'in renderer)renderer.outputEncoding=THREE.sRGBEncoding;
  // A compact procedural reflection probe gives the copper body readable highlights without downloading a large HDR map.
  try{const envScene=new THREE.Scene();envScene.background=new THREE.Color(0x20150f);const addGlow=(color,pos,scale)=>{const q=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),new THREE.MeshBasicMaterial({color}));q.position.set(...pos);q.scale.set(...scale);envScene.add(q)};addGlow(0xffc080,[0,4,2],[4,.3,.3]);addGlow(0x6c8ca8,[-5,2,-3],[2,3,.2]);addGlow(0xff8f45,[4,2,-4],[2,3,.25]);const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(envScene,.04).texture;pmrem.dispose()}catch(e){}
  clock=new THREE.Clock();
@@ -535,8 +535,30 @@ function createEmergency3DScene(error){
  }
 }
 
+function startRenderWatchdog(){
+ let lastRecovery=0;
+ const tick=()=>{
+  try{
+   const now=performance.now();
+   if(renderer&&scene&&camera&&worldReady&&typeof window.__agroNativeRender==='function'&&now-(window.__agroLastGoodRender||0)>1400&&now-lastRecovery>650){
+    const canvas=renderer.domElement;
+    canvas.style.display='block';canvas.style.visibility='visible';canvas.style.opacity='1';
+    if(scene.fog)scene.fog=null;
+    if(scene.background&&scene.background.isColor)scene.background.set(0x4b3528);
+    camera.aspect=innerWidth/innerHeight;camera.position.set(0,3.1,7.8);camera.lookAt(0,1.15,-3.4);camera.updateProjectionMatrix();
+    renderer.toneMapping=THREE.NoToneMapping;renderer.toneMappingExposure=1;
+    renderer.autoClear=true;renderer.setClearColor(0x4b3528,1);
+    window.__agroNativeRender(scene,camera);
+    window.__agroLastGoodRender=now;lastRecovery=now;
+    console.warn('AGROBULL: восстановлена прямая отрисовка 3D-сцены');
+   }
+  }catch(error){console.error('AGROBULL render watchdog:',error);lastRecovery=performance.now()}
+  requestAnimationFrame(tick);
+ };
+ requestAnimationFrame(tick);
+}
 function resize3d(){if(!renderer||!camera)return;lowPowerMode=(navigator.hardwareConcurrency||4)<=4||innerWidth<720;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPowerMode?1.05:1.55));renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.fov=innerWidth/innerHeight<1.3?72:68;camera.updateProjectionMatrix()}
-if(typeof THREE==='undefined'){const status=$('#connectionStatus');if(status)status.textContent='Не загрузился Three.js. Проверь подключение к интернету.';console.error('AGROBULL: Three.js не загрузился ни с основного, ни с резервного CDN.')}else{try{createRoom();if(!worldReady)createEmergency3DScene(new Error('Комната не завершила запуск'))}catch(error){createEmergency3DScene(error)}}
+if(typeof THREE==='undefined'){const status=$('#connectionStatus');if(status)status.textContent='Не загрузился Three.js. Проверь подключение к интернету.';console.error('AGROBULL: Three.js не загрузился ни с основного, ни с резервного CDN.')}else{try{createRoom();if(!worldReady)createEmergency3DScene(new Error('Комната не завершила запуск'))}catch(error){createEmergency3DScene(error)}startRenderWatchdog()}
 // React to new room/game snapshots and drive the 3D cast.
 // Sync each network snapshot into the 3D stage.
 if(socket){socket.on('gameState',state=>{activeState=state;update3dPile(state.pileCount||0);syncCharacters(state.players||[]);if(state.phase==='rodeo'&&state.rodeo&&(!rodeomotion||rodeomotion.playerId!==state.rodeo.playerId))startRodeoVisual(state.rodeo);if(state.phase==='playing'&&rodeomotion){bullRig.root.visible=true;bullRig.root.position.set(0,.18,-6.6);bullRig.body.rotation.set(0,0,0);const rec=actorModels.get(rodeomotion.playerId);if(rec&&rec.player.alive!==false){rec.group.scale.setScalar(1);rec.group.position.set(rec.base[0],0,rec.base[2]-.4);rec.group.rotation.set(0,Math.atan2(-rec.base[0],-rec.base[2]+.4),0)}rodeomotion=null}})}
