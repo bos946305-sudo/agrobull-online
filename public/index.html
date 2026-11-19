@@ -232,21 +232,31 @@ function renderGameState(state){
  skillRoot.style.display=skillRoot.children.length?'flex':'none';
  if(state.phase==='finished'){$('#hint').textContent='Матч завершён'}
 }
+$('#playBtn').type='button';
 $('#playBtn').onclick=()=>{
- if(!selected.size||playRequestPending)return;
+ const button=$('#playBtn'),state=gameState,me=state?.players?.find(p=>p.id===selfId),hand=me?.hand||[];
+ if(playRequestPending)return;
  if(!socket?.connected)return notify('Нет соединения с сервером');
- const indexes=[...selected],button=$('#playBtn');
- playRequestPending=true;button.disabled=true;button.textContent='Отправка…';
- socket.timeout(7000).emit('playCards',{indexes},(err,result)=>{
+ if(!state||state.phase!=='playing'||state.currentId!==selfId)return notify('Сейчас не твой ход.');
+ const indexes=[...selected].filter(i=>Number.isInteger(i)&&i>=0&&i<hand.length).sort((a,b)=>a-b);
+ if(!indexes.length)return notify('Сначала выбери хотя бы одну карту.');
+ if(indexes.length>3)return notify('Можно выложить максимум 3 карты.');
+ let settled=false;
+ const finish=(err,result)=>{
+   if(settled)return;settled=true;clearTimeout(ackTimer);
    playRequestPending=false;button.textContent='Выложить';
    if(err||!result?.ok){
-     button.disabled=!(gameState?.currentId===selfId&&gameState?.phase==='playing'&&selected.size);
-     notify(result?.message||'Сервер не подтвердил ход. Попробуй ещё раз.');
+     button.disabled=!(gameState?.currentId===selfId&&gameState?.phase==='playing'&&selected.size>0);
+     notify(result?.message||(err?'Сервер не ответил на ход. Проверь соединение и попробуй ещё раз.':'Не удалось выложить карты.'));
      return;
    }
    selected.clear();
    if(gameState)renderGameState(gameState);
- });
+ };
+ playRequestPending=true;button.disabled=true;button.textContent='Отправка…';
+ const ackTimer=setTimeout(()=>finish(new Error('playCards acknowledgement timeout')),8000);
+ try{socket.emit('playCards',{indexes},result=>finish(null,result));}
+ catch(error){finish(error,null);}
 };
 $('#callBtn').onclick=()=>{socket.emit('callBluff');selected.clear()};
 function showResult(state){const winner=state.players.find(p=>p.id===state.winnerId),won=state.winnerId===selfId;let reward=0;if(!paidGames.includes(state.gameId)){reward=won?80:15;profile.coins+=reward;saveProfile();paidGames.push(state.gameId);paidGames=paidGames.slice(-60);localStorage.setItem('agrobull_paid_games',JSON.stringify(paidGames))}$('#resultTitle').textContent=won?'ТЫ — ХОЗЯИН АГРОБАРА':'МАТЧ ЗАВЕРШЁН';$('#resultText').textContent=won?'Ты пережил все выезды и покорил медного быка.':`Победитель: ${winner?.name||'неизвестен'}. Следующий раз удержишься дольше!`;$('#rewardText').textContent=`+${reward}`;showView('resultView')}
