@@ -19,7 +19,7 @@ const quickQueue = [];
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: true, cors: { origin: true, credentials: false } });
-require('./server-extras')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
+require('./server-bots')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 
 app.disable('x-powered-by');
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h' }));
