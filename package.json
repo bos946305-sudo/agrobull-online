@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check server-bots.js && node --check public/agro-bots.js"
+    "check": "node --check server.js && node --check server-bots.js && node --check server-modes.js && node --check server-resilience.js && node --check public/agro-bots.js && node --check public/agro-resume.js && node --check public/agro-meta.js",
+    "prestart": "npm run check"
   },
   "engines": {
     "node": ">=20"
