@@ -18,7 +18,7 @@
   const lightningOverlay = document.createElement('div');
   lightningOverlay.id = 'agroLightning';
   document.body.appendChild(lightningOverlay);
-  if (scene && scene.fog) { scene.fog.density = Math.min(scene.fog.density || .024, .012); scene.fog.color.set(0x24170f); } if (scene && scene.background && scene.background.isColor) scene.background.set(0x24170f);
+  if (scene && scene.fog) { scene.fog.density = Math.min(scene.fog.density || .004, .004); scene.fog.color.set(0x4b3528); } if (scene && scene.background && scene.background.isColor) scene.background.set(0x4b3528); scene.add(new THREE.AmbientLight(0xffe5c8,.42));
 
   // Peek presentation and target selection are handled by the main 3D client.
   // Do not create the old 2D card fan or the duplicate dropdown here.
