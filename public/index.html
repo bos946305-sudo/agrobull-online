@@ -72,6 +72,16 @@
 /* Click a rival to use the peek skill. */
 .peekTarget{pointer-events:auto;cursor:pointer;border-color:rgba(92,218,186,.8)!important;box-shadow:0 0 0 1px rgba(92,218,186,.22),0 0 18px rgba(55,190,160,.2)!important}.peekTarget:after{content:'👁';margin-left:auto;font-size:13px;color:#9fffe2}.peekTarget:hover{background:rgba(25,100,80,.35)}
 
+/* Never let the full-screen lobby backdrop cover the 3D match. */
+body.agro-game-active #mainOverlay,
+body.agro-game-active #homeView,
+body.agro-game-active #roomView,
+body.agro-game-active #garageView,
+body.agro-game-active #resultView{display:none!important}
+body.agro-game-active #scene{display:block!important;visibility:visible!important;opacity:1!important;z-index:0!important}
+body.agro-game-active #vignette,
+body.agro-game-active #filmgrain,
+body.agro-game-active #grade{display:none!important}
 /* Keep the real 3D scene unobscured while recovering WebGL. */
 #vignette,#filmgrain,#grade{display:none!important}
 </style>
@@ -145,7 +155,7 @@ function connect(){
  socket.on('connect_error',()=>{$('#connectionStatus').textContent='Нет соединения с сервером. Проверь запуск или ссылку сайта.';$('#connectionStatus').style.color='#e18b73'});
  socket.on('joined',data=>{selfId=data.playerId;room=data.roomCode;$('#roomPill').style.display='flex';$('#roomPillCode').textContent=room;$('#roomCodeBig').textContent=room});
  socket.on('lobby',data=>{lobby=data;room=data.code;$('#roomPill').style.display='flex';$('#roomPillCode').textContent=room;$('#roomCodeBig').textContent=room;renderLobby();if(!gameState||gameState.phase==='lobby')showView('roomView')});
- socket.on('gameState',state=>{if(state.begging&&state.begging.id!==lastBeggingId){beggingMotion={playerId:state.begging.fromId,startedAt:performance.now()};lastBeggingId=state.begging.id}else if(!state.begging)lastBeggingId=null;if(state.rodeo?.saved&&!gameState?.rodeo?.saved)revivePulse={playerId:state.rodeo.playerId,startedAt:performance.now()};gameState=state;renderGameState(state);if(state.phase==='playing'||state.phase==='rodeo')hideOverlay();if(state.phase==='finished')showResult(state)});
+ socket.on('gameState',state=>{if(state&&(state.phase==='playing'||state.phase==='rodeo')){document.body.classList.add('agro-game-active');hideOverlay()}if(state.begging&&state.begging.id!==lastBeggingId){beggingMotion={playerId:state.begging.fromId,startedAt:performance.now()};lastBeggingId=state.begging.id}else if(!state.begging)lastBeggingId=null;if(state.rodeo?.saved&&!gameState?.rodeo?.saved)revivePulse={playerId:state.rodeo.playerId,startedAt:performance.now()};gameState=state;renderGameState(state);if(state.phase==='playing'||state.phase==='rodeo'){document.body.classList.add('agro-game-active');hideOverlay();try{if(renderer&&scene&&camera&&window.__agroNativeRender){const selfIndex=(state.players||[]).findIndex(p=>p.id===selfId);const seat=seatPositionsFor((state.players||[]).length)[selfIndex>=0?selfIndex:0]||[0,0,3.35];const yaw=Math.atan2(-seat[0],-seat[2]+.4);camera.position.set(seat[0]+Math.sin(yaw)*.38,1.68,seat[2]-.4+Math.cos(yaw)*.38);const forward=v3(Math.sin(yaw),orbitPitch,Math.cos(yaw)).normalize();camera.lookAt(camera.position.clone().add(forward.multiplyScalar(9)));camera.updateProjectionMatrix();window.__agroNativeRender(scene,camera);window.__agroLastGoodRender=performance.now()}}catch(frameError){console.error('AGROBULL immediate game frame failed:',frameError)}}if(state.phase==='finished'){document.body.classList.remove('agro-game-active');showResult(state)}});
  socket.on('roomError',e=>notify(e.message||'Ошибка комнаты'));
   socket.on('privatePeek',data=>showPhysicalPeek(data));
 }
