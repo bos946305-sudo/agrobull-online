@@ -65,7 +65,7 @@ function publicLobby(room) {
       id: p.id, name: p.name, character: p.character, skin: p.skin,
       ready: p.ready, isHost: p.id === room.hostId, connected: p.connected
     })),
-    maxPlayers: MAX_PLAYERS,
+    maxPlayers: typeof io.settingsOf === 'function' ? io.settingsOf(room.code).maxPlayers : MAX_PLAYERS,
     canStart: room.players.length >= MIN_PLAYERS && room.players.every(p => p.ready && p.connected)
   };
 }
