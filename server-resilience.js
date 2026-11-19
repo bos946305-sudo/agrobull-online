@@ -89,7 +89,7 @@ module.exports = function attachResilience(io, ctx = {}) {
       const player = room && room.players.find(p => p.id === data.playerId);
       if (!player || !player.token || player.token !== data.token ||
           (player.deviceId && data.deviceId !== player.deviceId) ||
-          !player.dcAt || Date.now() - player.dcAt > GRACE_MS) {
+          (player.dcAt && Date.now() - player.dcAt > GRACE_MS)) {
         socket.emit('rejoinFailed');
         return;
       }
@@ -99,6 +99,7 @@ module.exports = function attachResilience(io, ctx = {}) {
         oldSocket.data.playerId = null;
         oldSocket.leave(room.code);
         oldSocket.emit('replaced');
+        oldSocket.disconnect(true);
       }
       player.socketId = socket.id;
       player.connected = true;
