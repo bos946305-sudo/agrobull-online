@@ -281,7 +281,7 @@ module.exports = function attachBots(io, ctx = {}) {
         continue;
       }
       timer.deadline = Date.now() + turnMs;
-      io.to(room.code).emit('turnTimer', { id: game.currentId, deadline: timer.deadline });
+      io.to(room.code).emit('turnTimer', { id: game.currentId, deadline: timer.deadline, ms: turnMs });
       const noOtherHands = !room.players.some(p => p.alive && p.id !== player.id && p.hand.length > 0);
       io.to(room.code).emit('chat', { from: 'timer', name: '⏱', t: player.name + ': время вышло' });
 
