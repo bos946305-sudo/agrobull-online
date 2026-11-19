@@ -257,7 +257,7 @@ function makeFeltTexture(){
 }
 function makeLeatherTexture(){const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');x.fillStyle='#31231d';x.fillRect(0,0,256,256);for(let i=0;i<1700;i++){x.fillStyle=`rgba(220,190,155,${Math.random()*.07})`;x.fillRect(Math.random()*256,Math.random()*256,1+Math.random()*2,1+Math.random()*2)}const t=new THREE.CanvasTexture(c);return t}
 function createRoom(){
- scene=new THREE.Scene();scene.background=new THREE.Color(0x100b08);scene.fog=new THREE.FogExp2(0x100b08,.024);
+ scene=new THREE.Scene();scene.background=new THREE.Color(0x24170f);scene.fog=new THREE.FogExp2(0x24170f,.012);
  camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,90);camera.position.set(0,1.68,3.02);camera.lookAt(0,1.45,-5);scene.add(camera);
  renderer=new THREE.WebGLRenderer({canvas:$('#scene'),antialias:true,alpha:false,powerPreference:'high-performance'});lowPowerMode=(navigator.hardwareConcurrency||4)<=4||innerWidth<720;const lowPower=lowPowerMode;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPower?1.18:1.72));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.04;if('outputEncoding'in renderer)renderer.outputEncoding=THREE.sRGBEncoding;
  // A compact procedural reflection probe gives the copper body readable highlights without downloading a large HDR map.
