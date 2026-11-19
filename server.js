@@ -280,6 +280,16 @@ io.on('connection', socket => {
     setTimeout(() => startRoomGame(room), 8000);
   });
 
+  socket.on('tableGesture', (data = {}) => {
+    const room = roomFor(socket);
+    const sender = room && playerById(room, socket.data.playerId);
+    if (!room || !sender || !['tap', 'slam'].includes(data.action)) return;
+    const now = Date.now();
+    if (socket.data.lastTableGestureAt && now - socket.data.lastTableGestureAt < 650) return;
+    socket.data.lastTableGestureAt = now;
+    socket.to(room.code).emit('tableGesture', { from: sender.id, action: data.action });
+  });
+
   socket.on('createRoom', (data = {}) => {
     removeQuickQueue(socket);
     if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
