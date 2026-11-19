@@ -8,7 +8,8 @@
   try{M={...M,...JSON.parse(localStorage.getItem(KEY)||'{}')};}catch(_){}
   if(M.day!==today()){M.day=today();M.quests={};}
   M.owned=Array.isArray(M.owned)?M.owned:['b0'];M.ach=Array.isArray(M.ach)?M.ach:[];
-  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(M));}catch(_){}};
+  if(typeof profile!=='undefined'&&profile&&Number.isFinite(Number(profile.coins)))M.coins=Number(profile.coins);
+  const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(M));}catch(_){};if(typeof profile!=='undefined'&&profile){profile.coins=M.coins;if(typeof saveProfile==='function')saveProfile();if(typeof updateCoins==='function')updateCoins();}};
   const toast=t=>{if(typeof notify==='function')notify(t);};
   const quests=[{id:'play',title:'Сыграй 2 матча',goal:2,reward:40},{id:'win',title:'Выиграй матч',goal:1,reward:80},{id:'catch',title:'Поймай 3 блефа',goal:3,reward:60}];
   const achievements=[{id:'first',title:'Первая победа',test:()=>M.wins>=1},{id:'sniper',title:'Снайпер: 5 верных проверок',test:()=>M.checks>=5},{id:'lucky',title:'Везунчик: 3 раза удержался на быке',test:()=>M.survived>=3},{id:'vet',title:'Ветеран: 10 матчей',test:()=>M.matches>=10}];
@@ -22,8 +23,9 @@
     hostId=l.hostId;
     const me=(l.players||[]).find(p=>p.id===selfId);
     const host=!!(me&&me.isHost);
-    settingsBox.style.display=host?'flex':'none';
-    kickPlayers(l,host);
+    const lobbyPhase=!gameState||gameState.phase==='lobby';
+    settingsBox.style.display=host&&lobbyPhase?'flex':'none';
+    kickPlayers(l,host&&lobbyPhase);
     if(!settingsRequested){settingsRequested=true;socket.emit('getSettings');}
   });
   socket.on('settings',s=>{
@@ -35,7 +37,7 @@
   socket.on('gameState',st=>{
     if(!st)return;
     if(st.phase==='finished'&&st.gameId&&st.gameId!==lastGame){
-      lastGame=st.gameId;const won=st.winnerId===selfId;M.matches++;M.xp+=won?120:50;M.coins+=won?60:20;progress('play');
+      lastGame=st.gameId;if(typeof profile!=='undefined'&&profile)M.coins=Number(profile.coins)||M.coins;const won=st.winnerId===selfId;M.matches++;M.xp+=won?120:50;M.coins+=won?60:20;progress('play');
       if(won){M.wins++;progress('win');}toast(won?'Победа! +120 опыта':'Матч окончен · +50 опыта');checkAchievements();save();
     }
     const lp=st.lastPlay;
