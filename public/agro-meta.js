@@ -93,16 +93,18 @@
   const observing=()=>{const me=(gameState?.players||[]).find(p=>p.id===selfId);return !!(me&&me.alive===false&&['playing','rodeo'].includes(gameState.phase));};
   spec.querySelector('#specPrev').onclick=()=>{const n=spectators().length;spectatorIndex=(spectatorIndex+n-1)%Math.max(1,n);};
   spec.querySelector('#specNext').onclick=()=>{const n=spectators().length;spectatorIndex=(spectatorIndex+1)%Math.max(1,n);};
-  const nativeRender=window.__agroNativeRender;
-  if(typeof nativeRender==='function')window.__agroNativeRender=function(sc,cam){
-    try{
-      if(observing()){
-        const list=spectators(),target=list[spectatorIndex%Math.max(1,list.length)],rec=target&&actorModels.get(target.id);
-        if(rec){const g=rec.group,dir=new THREE.Vector3(Math.sin(g.rotation.y),0,Math.cos(g.rotation.y));cam.position.set(g.position.x+dir.x*.35,1.68,g.position.z+dir.z*.35);cam.lookAt(g.position.x+dir.x*8,1.55,g.position.z+dir.z*8);cam.updateProjectionMatrix();}
-      }
-    }catch(_){}
-    return nativeRender(sc,cam);
-  };
+  if(typeof renderer!=='undefined'&&renderer&&typeof renderer.render==='function'){
+    const previousRender=renderer.render.bind(renderer);
+    renderer.render=function(sc,cam){
+      try{
+        if(observing()&&cam===camera){
+          const list=spectators(),target=list[spectatorIndex%Math.max(1,list.length)],rec=target&&actorModels.get(target.id);
+          if(rec){const g=rec.group,dir=new THREE.Vector3(Math.sin(g.rotation.y),0,Math.cos(g.rotation.y));cam.position.set(g.position.x+dir.x*.35,1.68,g.position.z+dir.z*.35);cam.lookAt(g.position.x+dir.x*8,1.55,g.position.z+dir.z*8);cam.updateProjectionMatrix();}
+        }
+      }catch(_){}
+      return previousRender(sc,cam);
+    };
+  }
   setInterval(()=>{
     const st=typeof gameState!=='undefined'?gameState:null;
     rematch.style.display=st&&st.phase==='finished'&&hostId===selfId?'block':'none';
