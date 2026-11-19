@@ -16,18 +16,19 @@
   socket.emit=function(event,...args){if(event==='leaveRoom')clear();return rawEmit(event,...args);};
   socket.on('joined',()=>rawEmit('getSession',{deviceId}));
   socket.on('session',s=>{if(s&&s.code&&s.playerId&&s.token){try{localStorage.setItem(SESSION,JSON.stringify({...s,savedAt:Date.now()}));}catch(_){}}});
-  socket.on('rejoinFailed',clear);
+  socket.on('rejoinFailed',()=>{clear();if(typeof room!=='undefined')room=null;if(typeof selfId!=='undefined')selfId=null;if(typeof gameState!=='undefined')gameState=null;if(typeof showView==='function')showView('homeView');if(typeof notify==='function')notify('Не удалось вернуть матч: время восстановления истекло');});
   socket.on('replaced',()=>{clear();notify('Сессия открыта на другом устройстве');});
   const style=document.createElement('style');
   style.textContent='#netB{position:fixed;z-index:80;top:calc(env(safe-area-inset-top,0px) + 8px);left:50%;transform:translateX(-50%);display:none;padding:8px 16px;border:1px solid #ff8a78;border-radius:999px;background:#641f1beF;color:#fff;font:800 12px Inter,sans-serif}#netP{position:fixed;z-index:8;right:9px;bottom:8px;padding:4px 8px;border:1px solid #705638;border-radius:999px;background:#100d0bd9;color:#8affc1;font:700 10px Inter,sans-serif;pointer-events:none}';
   document.head.appendChild(style);
   const banner=document.createElement('div');banner.id='netB';banner.textContent='📡 Нет связи — возвращаем тебя в матч';document.body.append(banner);
   const pill=document.createElement('div');pill.id='netP';pill.textContent='📶 проверка связи…';document.body.append(pill);
-  socket.on('disconnect',()=>{banner.style.display='block';});
+  let needsResume=false;
+  socket.on('disconnect',()=>{needsResume=true;banner.style.display='block';});
   const onConnect=()=>{
     banner.style.display='none';
     const saved=read();
-    if(saved&&!(typeof room!=='undefined'&&room))rawEmit('rejoin',{code:saved.code,playerId:saved.playerId,token:saved.token,deviceId});
+    if(saved&&(!(typeof room!=='undefined'&&room)||needsResume)){needsResume=false;rawEmit('rejoin',{code:saved.code,playerId:saved.playerId,token:saved.token,deviceId});}
   };
   socket.on('connect',onConnect);
   if(socket.connected)onConnect();
