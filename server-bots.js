@@ -210,7 +210,8 @@ module.exports = function attachBots(io, ctx = {}) {
       const difficulty = ['easy', 'normal', 'hard'].includes(data.diff) ? data.diff : 'normal';
       const requested = Math.max(1, Math.min(3, Number(data.count) || 1));
       const pending = pendingByRoom.get(room.code) || 0;
-      const free = Math.max(0, maxPlayers - room.players.length - pending);
+      const roomLimit = typeof io.settingsOf === 'function' ? Number(io.settingsOf(room.code).maxPlayers) || maxPlayers : maxPlayers;
+      const free = Math.max(0, Math.min(maxPlayers, roomLimit) - room.players.length - pending);
       const count = Math.min(requested, free);
       if (!count) {
         socket.emit('botsError', { message: 'В комнате больше нет свободных мест.' });
@@ -267,7 +268,7 @@ module.exports = function attachBots(io, ctx = {}) {
       if (!timer || timer.key !== key) {
         timer = { key, deadline: Date.now() + turnMs };
         turnTimers.set(room.code, timer);
-        io.to(room.code).emit('turnTimer', { id: game.currentId, deadline: timer.deadline });
+        io.to(room.code).emit('turnTimer', { id: game.currentId, deadline: timer.deadline, ms: turnMs });
         continue;
       }
       if (Date.now() < timer.deadline || game.begging) continue;
@@ -276,7 +277,7 @@ module.exports = function attachBots(io, ctx = {}) {
       const playerSocket = player && io.sockets.sockets.get(player.socketId);
       if (!player || !playerSocket || !player.hand.length) {
         timer.deadline = Date.now() + turnMs;
-        io.to(room.code).emit('turnTimer', { id: game.currentId, deadline: timer.deadline });
+        io.to(room.code).emit('turnTimer', { id: game.currentId, deadline: timer.deadline, ms: turnMs });
         continue;
       }
       timer.deadline = Date.now() + turnMs;
