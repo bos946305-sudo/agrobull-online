@@ -24,13 +24,13 @@
   const banner=document.createElement('div');banner.id='netB';banner.textContent='📡 Нет связи — возвращаем тебя в матч';document.body.append(banner);
   const pill=document.createElement('div');pill.id='netP';pill.textContent='📶 проверка связи…';document.body.append(pill);
   socket.on('disconnect',()=>{banner.style.display='block';});
-  socket.on('connect',()=>{
+  const onConnect=()=>{
     banner.style.display='none';
     const saved=read();
-    if(saved&&!(typeof room!=='undefined'&&room)){
-      rawEmit('rejoin',{code:saved.code,playerId:saved.playerId,token:saved.token,deviceId});
-    }
-  });
+    if(saved&&!(typeof room!=='undefined'&&room))rawEmit('rejoin',{code:saved.code,playerId:saved.playerId,token:saved.token,deviceId});
+  };
+  socket.on('connect',onConnect);
+  if(socket.connected)onConnect();
   let latency=0,seq=0;const samples=[];
   setInterval(()=>{
     if(!socket.connected){samples.push(0);}
