@@ -21,7 +21,7 @@ module.exports = function attach(io, ctx = {}) {
       if (ev === 'joinRoom') {
         const code = String(d.code || '').trim().toUpperCase().slice(0, 4), s = SET.get(code);
         const size = (io.sockets.adapter.rooms.get(code) || new Set()).size;
-        if (s && size >= s.maxPlayers) { socket.emit('roomError', { message: \`В комнате максимум \${s.maxPlayers} игрока.\` }); return next(new Error('full')); }
+        if (s && size >= s.maxPlayers) { socket.emit('roomError', { message: `В комнате максимум ${s.maxPlayers} игрока.` }); return next(new Error('full')); }
       }
       if (ev === 'useAbility') {
         const r = roomFor(socket), s = r && SET.get(r.code);
