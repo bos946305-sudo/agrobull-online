@@ -120,7 +120,7 @@ const defaultProfile = {name:'Игрок',character:'walter',skin:'classic',coin
 function loadProfile(){try{return {...defaultProfile,...JSON.parse(localStorage.getItem('agrobull_profile_v2')||'{}')}}catch(_){return {...defaultProfile}}}
 let profile = loadProfile();
 if(!Array.isArray(profile.owned))profile.owned=['classic'];
-let socket = null, selfId = null, room = null, lobby = null, gameState = null, selected = new Set(), lastHandKey = '', paidGames = [];let beggingMotion=null,lastBeggingId=null,revivePulse=null,lastPlayNoticeKey='',lastPlayNoticeTimer=null;
+let socket = null, selfId = null, room = null, lobby = null, gameState = null, selected = new Set(), lastHandKey = '', paidGames = [], playRequestPending = false;let beggingMotion=null,lastBeggingId=null,revivePulse=null,lastPlayNoticeKey='',lastPlayNoticeTimer=null;
 try{paidGames=JSON.parse(localStorage.getItem('agrobull_paid_games')||'[]')}catch(_){paidGames=[]}
 function saveProfile(){localStorage.setItem('agrobull_profile_v2',JSON.stringify(profile));updateCoins()}
 function updateCoins(){$('#coinCount').textContent=profile.coins;$('#garageCoins').textContent=profile.coins}
@@ -205,7 +205,6 @@ function renderGameState(state){
  skillRoot.style.display=skillRoot.children.length?'flex':'none';
  if(state.phase==='finished'){$('#hint').textContent='Матч завершён'}
 }
-let playRequestPending=false;
 $('#playBtn').onclick=()=>{
  if(!selected.size||playRequestPending)return;
  if(!socket?.connected)return notify('Нет соединения с сервером');
@@ -219,6 +218,7 @@ $('#playBtn').onclick=()=>{
      return;
    }
    selected.clear();
+   if(gameState)renderGameState(gameState);
  });
 };
 $('#callBtn').onclick=()=>{socket.emit('callBluff');selected.clear()};
