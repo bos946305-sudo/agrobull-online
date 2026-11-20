@@ -47,6 +47,8 @@ const SCHEMA = [
   "  ranked BOOLEAN NOT NULL DEFAULT FALSE,",
   "  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
   ");",
+  "ALTER TABLE agro_matches DROP CONSTRAINT IF EXISTS agro_matches_mode_check;",
+  "ALTER TABLE agro_matches ADD CONSTRAINT agro_matches_mode_check CHECK (mode IN ('cards','dice','poker'));",
   "CREATE TABLE IF NOT EXISTS agro_rating_pairs (",
   "  account_low TEXT NOT NULL REFERENCES agro_accounts(id) ON DELETE CASCADE,",
   "  account_high TEXT NOT NULL REFERENCES agro_accounts(id) ON DELETE CASCADE,",
