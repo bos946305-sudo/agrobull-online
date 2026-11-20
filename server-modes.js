@@ -50,6 +50,10 @@ module.exports = function attach(io, ctx = {}) {
     socket.on('rematch', () => {
       const r = roomFor(socket); if (!r || !r.game || r.game.phase !== 'finished' || socket.data.playerId !== r.hostId) return;
       r.game = null;
+      // A rematch from a private room is unranked; rated quick-play results are final.
+      r.ranked = false;
+      r.rankedAccounts = [];
+      r.rankedResultRecorded = false;
       r.players.forEach(p => { p.alive = true; p.rides = 0; p.hand = []; p.abilityUsed = false; p.ready = p.id === r.hostId; });
       const l = lobby(r);
       r.players.forEach(p => { if (p.socketId) io.to(p.socketId).emit('gameState', { roomCode: r.code, phase: 'lobby', lobby: l }); });
