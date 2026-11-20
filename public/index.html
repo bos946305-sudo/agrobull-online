@@ -92,6 +92,13 @@ body.agro-game-active #filmgrain,
 body.agro-game-active #grade{display:none!important}
 /* Keep the real 3D scene unobscured while recovering WebGL. */
 #vignette,#filmgrain,#grade{display:none!important}
+
+/* Keep the top controls above the start-menu backdrop so every icon receives clicks. */
+#topbar{z-index:21}
+#topbar .topright{position:relative;z-index:22;pointer-events:auto}
+#topbar .topright button{pointer-events:auto;touch-action:manipulation}
+/* The trophy profile and account/settings dialogs must sit above the header. */
+#metaProfile{z-index:70}
 </style>
 </head>
 <body>
