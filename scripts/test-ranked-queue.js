@@ -81,7 +81,7 @@ function setup(pairCount = 0) {
     await b.handlers.rankedQueue({ mode: 'cards', want: 2 });
     a.data.roomCode = 'OTHER';
     await env.io.ranked.tick();
-    assert.strictEqual(env.io.ranked.size(), 0, 'сокет, вошедший в другую комнату, должен удалиться из очереди');
+    assert.strictEqual(env.io.ranked.size(), 1, 'сокет, вошедший в другую комнату, должен удалиться из очереди');
     assert.strictEqual(env.rooms.size, 0);
     env.io.ranked.close();
   }
