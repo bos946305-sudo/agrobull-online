@@ -47,12 +47,11 @@ const SCHEMA = [
   "  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
   ");",
   "CREATE TABLE IF NOT EXISTS agro_rating_pairs (",
-  "  mode TEXT NOT NULL CHECK (mode IN ('cards','dice')),",
   "  account_low TEXT NOT NULL REFERENCES agro_accounts(id) ON DELETE CASCADE,",
   "  account_high TEXT NOT NULL REFERENCES agro_accounts(id) ON DELETE CASCADE,",
   "  played_on DATE NOT NULL,",
   "  games INTEGER NOT NULL DEFAULT 0,",
-  "  PRIMARY KEY (mode, account_low, account_high, played_on),",
+  "  PRIMARY KEY (account_low, account_high, played_on),",
   "  CHECK (account_low < account_high)",
   ");"
 ].join('\n');
@@ -79,14 +78,20 @@ function expectedScore(a, b) {
 
 function calculateElo(players) {
   if (!Array.isArray(players) || players.length < 2) return [];
+  const winner = players.find(player => player.won);
+  if (!winner) return [];
   return players.map(player => {
     const opponents = players.filter(other => other.accountId !== player.accountId);
-    const expected = opponents.reduce((sum, opponent) => {
-      return sum + expectedScore(player.rating, opponent.rating);
-    }, 0) / opponents.length;
     const k = player.ratedGames < 30 ? 32 : 20;
-    const score = player.won ? 1 : 0;
-    const delta = Math.round(k * (score - expected));
+    let rawDelta;
+    if (player.won) {
+      rawDelta = opponents.reduce((sum, opponent) => {
+        return sum + k * (1 - expectedScore(player.rating, opponent.rating));
+      }, 0) / opponents.length;
+    } else {
+      rawDelta = -k * expectedScore(player.rating, winner.rating) / opponents.length;
+    }
+    const delta = Math.round(rawDelta);
     return { ...player, delta, ratingAfter: Math.max(100, player.rating + delta) };
   });
 }
@@ -333,6 +338,15 @@ module.exports = function attachAccounts(io, ctx = {}) {
           console.error('[accounts] logout failed:', error && error.message || error);
         }
       }
+      const activeRoom = socket.data.roomCode && rooms.get(socket.data.roomCode);
+      const seated = activeRoom && activeRoom.players.find(player => player.id === socket.data.playerId);
+      if (seated) {
+        seated.accountId = null;
+        seated.ratings = null;
+        seated.rating = null;
+        if (!(activeRoom.game && activeRoom.game.phase !== 'finished') &&
+            !(activeRoom.dice && activeRoom.dice.phase !== 'finished') && sendLobby) sendLobby(activeRoom);
+      }
       socket.data.accountId = null;
       socket.data.account = null;
       socket.data.accountTokenHash = null;
@@ -452,11 +466,11 @@ module.exports = function attachAccounts(io, ctx = {}) {
           for (let i = 0; i < uniqueHumanParticipants.length; i++) {
             for (let j = i + 1; j < uniqueHumanParticipants.length; j++) {
               const ids = [uniqueHumanParticipants[i].accountId, uniqueHumanParticipants[j].accountId].sort();
-              const lockKey = mode + ':' + ids[0] + ':' + ids[1] + ':' + d0;
+              const lockKey = ids[0] + ':' + ids[1] + ':' + d0;
               await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [lockKey]);
               const pair = await client.query(
-                'SELECT games FROM agro_rating_pairs WHERE mode=$1 AND account_low=$2 AND account_high=$3 AND played_on=$4 FOR UPDATE',
-                [mode, ids[0], ids[1], d0]
+                'SELECT games FROM agro_rating_pairs WHERE account_low=$1 AND account_high=$2 AND played_on=$3 FOR UPDATE',
+                [ids[0], ids[1], d0]
               );
               if (Number(pair.rows[0] && pair.rows[0].games || 0) >= MAX_DAILY_PAIR_MATCHES) capped = true;
               pairs.push(ids);
@@ -491,10 +505,10 @@ module.exports = function attachAccounts(io, ctx = {}) {
             }
             for (const ids of pairs) {
               await client.query(
-                'INSERT INTO agro_rating_pairs (mode,account_low,account_high,played_on,games) ' +
-                'VALUES ($1,$2,$3,$4,1) ON CONFLICT (mode,account_low,account_high,played_on) ' +
+                'INSERT INTO agro_rating_pairs (account_low,account_high,played_on,games) ' +
+                'VALUES ($1,$2,$3,1) ON CONFLICT (account_low,account_high,played_on) ' +
                 'DO UPDATE SET games=agro_rating_pairs.games+1',
-                [mode, ids[0], ids[1], d0]
+                [ids[0], ids[1], d0]
               );
             }
             rated = true;
