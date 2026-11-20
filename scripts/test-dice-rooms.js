@@ -97,6 +97,14 @@ function dispatch(socket, event, data) {
   assert.strictEqual(room.game, activeCardGame, 'dice rematch must not clear an active card game');
   assert(room.dice, 'dice rematch must not change dice state during a live card game');
 
+  // Quick matchmaking starts dice through the same server-side initializer.
+  room.game = null;
+  assert.strictEqual(typeof fakeIo.startDiceRoom, 'function', 'dice initializer must be exposed for quick matchmaking');
+  assert.strictEqual(fakeIo.startDiceRoom(room), true, 'quick dice match should start when both seats are ready');
+  assert.strictEqual(room.dice.phase, 'bidding', 'quick dice match should open the bidding phase');
+  assert.strictEqual(room.dice.n.host, 5, 'quick dice match gives each player five dice');
+  assert.strictEqual(room.dice.n.guest, 5, 'quick dice match gives each player five dice');
+
   // Starting cards after a finished dice match explicitly clears the old mode.
   const serverSource = require('fs').readFileSync(require('path').join(__dirname, '..', 'server.js'), 'utf8');
   assert(/room\.dice\s*=\s*null;\s*room\.game\s*=\s*\{\s*gameId:\s*id\(\)/.test(serverSource),
