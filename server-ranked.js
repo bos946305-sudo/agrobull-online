@@ -21,10 +21,10 @@ module.exports = function attachRanked(io, ctx = {}) {
     pairLimit: 5, providerMs: 1500, cacheMs: 20000, ...(ctx.window || {})
   };
   // server-accounts currently stores and settles only these two modes.
-  const MODES = ctx.modes || ['cards', 'dice'];
+  const MODES = ctx.modes || ['cards', 'dice', 'poker'];
   const SIZES = [2, 4];
   const LOCKED = [
-    'addBots', 'setSettings', 'kick', 'rematch', 'diceRematch',
+    'addBots', 'setSettings', 'kick', 'rematch', 'diceRematch', 'pokerRematch',
     ...(ctx.lockedEvents || [])
   ];
   const CHARS = ['walter', 'saul', 'jesse', 'gus'];
@@ -142,6 +142,7 @@ module.exports = function attachRanked(io, ctx = {}) {
   function defaultStart(room, mode) {
     if (mode === 'cards' && typeof io.startCardsRoom === 'function') return io.startCardsRoom(room);
     if (mode === 'dice' && typeof io.startDiceRoom === 'function') return io.startDiceRoom(room);
+    if (mode === 'poker' && typeof io.startPokerRoom === 'function') return io.startPokerRoom(room);
     console.error('[ranked] no public start function for mode:', mode);
     return false;
   }
@@ -159,7 +160,8 @@ module.exports = function attachRanked(io, ctx = {}) {
     const code = room.code;
     setTimeout(() => {
       if (rooms.get(code) !== room || room.players.length < 2 || room.game ||
-          (room.dice && room.dice.phase !== 'finished')) return;
+          (room.dice && room.dice.phase !== 'finished') ||
+          (room.poker && room.poker.phase !== 'finished')) return;
       if (!room.players.every(player => player.connected !== false && player.ready)) return;
       (ctx.startMatch || defaultStart)(room, mode);
     }, CFG.startIn);
