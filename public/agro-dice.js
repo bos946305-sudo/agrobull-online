@@ -110,7 +110,10 @@
   });
 
   socket.on('gameState', snapshot => {
-    if (snapshot && snapshot.phase === 'lobby') hide();
+    // A card game may start after a dice match ends in the same room.
+    // Never leave the old dice overlay above the card-game interface.
+    if (snapshot && snapshot.phase !== 'lobby') hide();
+    else if (snapshot && snapshot.phase === 'lobby') hide();
   });
 
   socket.on('roomError', data => {
