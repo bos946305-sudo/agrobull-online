@@ -19,8 +19,7 @@ const quickQueue = [];
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: true, maxHttpBufferSize: 1e5, pingInterval: 10000, pingTimeout: 8000, cors: { origin: true, credentials: false } });
-app.use(express.json({ limit: '16kb' }));
-require('./server-accounts')(io, { app });
+require('./server-accounts')(io, { rooms });
 require('./server-bots')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 require('./server-modes')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 require('./server-resilience')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS, rooms, broadcastState, sendLobby, leaveCurrentRoom });
@@ -51,11 +50,12 @@ function profileFrom(data = {}) {
 function profileForSocket(socket, data = {}) {
   const profile = profileFrom(data);
   const account = socket.data && socket.data.account;
-  if (account) profile.name = safeText(account.username, profile.name);
+  if (account) profile.name = safeText(account.name, profile.name);
   return {
     ...profile,
     accountId: account ? account.id : null,
-    rating: account ? Number(account.rating) || 1000 : null
+    ratings: account ? account.ratings : null,
+    rating: account ? Number(account.ratings.cards) || 1000 : null
   };
 }
 function skillFor(player) {
@@ -146,15 +146,15 @@ function nextPlayerWithCards(room, afterId) {
   return null;
 }
 function finishGame(room, winnerId) {
-  if (!room.game) return;
+  if (!room.game || room.game.phase === 'finished') return;
   room.game.phase = 'finished';
   room.game.currentId = null;
   room.game.winnerId = winnerId || null;
   room.game.message = winnerId ? `${playerById(room, winnerId)?.name || 'Игрок'} победил!` : 'Игра завершена';
   broadcastState(room);
-  if (room.ranked && typeof io.recordRankedResult === 'function') {
-    io.recordRankedResult(room, winnerId || null, 'cards', game.gameId).catch(error => {
-      console.error('[accounts] card rating update failed:', error && error.message || error);
+  if (typeof io.settleRankedRoom === 'function') {
+    io.settleRankedRoom(room, winnerId || null, 'cards', room.game.gameId).catch(error => {
+      console.error('[accounts] card result settlement failed:', error && error.message || error);
     });
   }
 }
@@ -194,6 +194,8 @@ function startRoomGame(room) {
   if (!room || rooms.get(room.code) !== room || room.game) return false;
   if (room.players.length < MIN_PLAYERS || !room.players.every(p => p.ready && p.connected)) return false;
   for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); p.abilityUsed = false; }
+  // Snapshot accounts once at match start; guest and bot matches stay unranked.
+  if (typeof io.prepareRankedRoom === 'function') io.prepareRankedRoom(room, 'cards');
   // A room can run only one mode at a time. Clear a finished dice match before cards start.
   room.dice = null;
   room.game = { gameId: id(), round: 0 };
