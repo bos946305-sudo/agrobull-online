@@ -259,7 +259,10 @@
 
   socket.on('quickSearching', data => {
     if (typeof notify === 'function') {
-      notify(data && data.ranked ? 'Ищем соперника с близким рейтингом…' : 'Ищем соперника…');
+      const modeName = data && data.mode === 'dice' ? 'в кости' : 'в картах';
+      notify(data && data.ranked
+        ? 'Ищем соперника близкого рейтинга ' + modeName + '…'
+        : 'Ищем соперника ' + modeName + '…');
     }
   });
 
