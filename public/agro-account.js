@@ -4,6 +4,7 @@
   if (typeof socket === 'undefined' || !socket || typeof document === 'undefined') return;
 
   const TOKEN_KEY = 'agro_auth_v1';
+  const PROMPT_KEY = 'agro_account_prompted_v1';
   const MODES = { cards: 'Карты', dice: 'Кости' };
   let token = '';
   let account = null;
@@ -80,12 +81,19 @@
     socket.emit('leaderboard', { mode });
   }
 
-  button.addEventListener('click', () => {
+  function markAccountPrompted() {
+    try { localStorage.setItem(PROMPT_KEY, '1'); } catch (_) {}
+  }
+
+  function openAccount(firstVisit = false) {
+    if (!account && firstVisit) tab = 'register';
     message = '';
     draw();
     overlay.style.display = 'flex';
     if (account) requestLeaderboard();
-  });
+  }
+
+  button.addEventListener('click', () => openAccount(false));
 
   function draw() {
     let html = '<div class="modal account-modal"><div class="eyebrow">AGROBULL · ПРОФИЛЬ И РЕЙТИНГ</div>';
@@ -141,7 +149,8 @@
       html += '<p class="account-note">Рейтинговый матч засчитывается, только если все участники — люди с аккаунтами. Игры с гостями и ботами не меняют ELO. С одной и той же парой игроков — не больше 5 рейтинговых игр за сутки.</p>';
       html += '<button type="button" class="secondary" id="accountLogout" style="width:100%">ВЫЙТИ ИЗ АККАУНТА</button>';
     }
-    html += '<button type="button" class="primary" id="accountClose" style="width:100%;margin-top:8px">ЗАКРЫТЬ</button></div>';
+    html += '<button type="button" class="primary" id="accountClose" style="width:100%;margin-top:8px">' +
+      (account ? 'ЗАКРЫТЬ' : 'ПРОДОЛЖИТЬ КАК ГОСТЬ') + '</button></div>';
     overlay.innerHTML = html;
     bind();
   }
@@ -180,12 +189,21 @@
       socket.emit('authLogout', { token });
     });
     const close = query('#accountClose');
-    if (close) close.addEventListener('click', () => { overlay.style.display = 'none'; });
+    if (close) close.addEventListener('click', () => { markAccountPrompted(); overlay.style.display = 'none'; });
   }
 
   function resumeSession() {
     connectionReady = true;
-    if (token) socket.emit('authResume', { token });
+    if (token) {
+      socket.emit('authResume', { token });
+    } else {
+      let alreadyPrompted = false;
+      try { alreadyPrompted = localStorage.getItem(PROMPT_KEY) === '1'; } catch (_) {}
+      if (!alreadyPrompted) {
+        markAccountPrompted();
+        openAccount(true);
+      }
+    }
     if (overlay.style.display === 'flex') draw();
   }
 
@@ -218,8 +236,10 @@
     if (data && data.resume) {
       token = '';
       try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
+      tab = 'login';
     }
     if (overlay.style.display === 'flex') draw();
+    else if (data && data.resume) openAccount(false);
   });
 
   socket.on('authOut', () => {
