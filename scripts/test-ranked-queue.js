@@ -85,6 +85,17 @@ function setup(pairCount = 0) {
     assert.strictEqual(env.rooms.size, 0);
     env.io.ranked.close();
   }
+  {
+    const env = setup(0);
+    const a = env.socket('socket-a', 'a');
+    const b = env.socket('socket-b', 'b');
+    await a.handlers.rankedQueue({ mode: 'poker', want: 2 });
+    await b.handlers.rankedQueue({ mode: 'poker', want: 2 });
+    await env.io.ranked.tick();
+    assert.strictEqual(env.rooms.size, 1, 'poker must use the same ranked queue');
+    assert.strictEqual(env.started[0].mode, 'poker');
+    env.io.ranked.close();
+  }
   console.log('RANKED QUEUE TESTS OK: async ratings, pair cap, room creation, cancellation and stale sockets.');
 })().catch(error => {
   console.error(error);
