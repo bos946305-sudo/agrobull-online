@@ -19,7 +19,7 @@ const quickQueue = [];
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: true, maxHttpBufferSize: 1e5, pingInterval: 10000, pingTimeout: 8000, cors: { origin: true, credentials: false } });
-require('./server-accounts')(io, { rooms });
+require('./server-accounts')(io, { rooms, sendLobby });
 require('./server-bots')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 require('./server-modes')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 require('./server-resilience')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS, rooms, broadcastState, sendLobby, leaveCurrentRoom });
