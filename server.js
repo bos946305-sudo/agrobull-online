@@ -298,10 +298,11 @@ io.on('connection', socket => {
     if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
     removeQuickQueue(socket);
     const profile = profileForSocket(socket, data);
+    const mode = data.mode === 'dice' ? 'dice' : 'cards';
     const accountId = profile.accountId;
-    const rating = accountId ? profile.rating : 1000;
+    const rating = accountId ? Number(profile.ratings && profile.ratings[mode]) || 1000 : 1000;
     const now = Date.now();
-    const currentEntry = { socket, profile, accountId, rating, queuedAt: now };
+    const currentEntry = { socket, profile, accountId, rating, mode, queuedAt: now };
     let waiting = null;
     let waitingIndex = -1;
     let bestDistance = Infinity;
@@ -314,6 +315,7 @@ io.on('connection', socket => {
         quickQueue.splice(i, 1);
         continue;
       }
+      if (candidate.mode !== mode) continue;
       if (!!candidate.accountId !== !!accountId) continue;
       if (accountId && candidate.accountId === accountId) continue;
       const distance = accountId ? Math.abs(Number(candidate.rating) - Number(rating)) : 0;
@@ -330,7 +332,7 @@ io.on('connection', socket => {
     if (waitingIndex >= 0) quickQueue.splice(waitingIndex, 1);
     if (!waiting) {
       quickQueue.push(currentEntry);
-      socket.emit('quickSearching', { ranked: !!accountId, rating: accountId ? rating : null });
+      socket.emit('quickSearching', { ranked: !!accountId, rating: accountId ? rating : null, mode });
       return;
     }
 
@@ -351,6 +353,7 @@ io.on('connection', socket => {
       hostId: hostPlayer.id,
       players: [hostPlayer, guestPlayer],
       game: null,
+      quickMode: mode,
       ranked,
       rankedResultRecorded: false,
       rankedAccounts: ranked ? [
@@ -368,7 +371,13 @@ io.on('connection', socket => {
     waiting.socket.emit('joined', { playerId: hostPlayer.id, roomCode: code });
     socket.emit('joined', { playerId: guestPlayer.id, roomCode: code });
     sendLobby(room);
-    setTimeout(() => startRoomGame(room), 8000);
+    setTimeout(() => {
+      if (mode === 'dice') {
+        if (typeof io.startDiceRoom === 'function') io.startDiceRoom(room);
+      } else {
+        startRoomGame(room);
+      }
+    }, 8000);
   });
 
   socket.on('tableGesture', (data = {}) => {
