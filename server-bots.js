@@ -55,7 +55,8 @@ module.exports = function attachBots(io, ctx = {}) {
 
   function spawnBot(code, profile, difficulty) {
     const client = ioc(serverUrl(), {
-      transports: ['websocket'], reconnection: false, timeout: 8000, forceNew: true
+      transports: ['websocket'], reconnection: false, timeout: 8000, forceNew: true,
+      auth: { botSecret: global.__botSecret }
     });
     let playerId = null;
     let latestState = null;
