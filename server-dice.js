@@ -81,9 +81,9 @@ module.exports = function attachDice(io, ctx = {}) {
     dice.winnerId = remaining[0] || null;
     dice.message = remaining[0] ? nameOf(room, remaining[0]) + ' побеждает!' : 'Игра окончена';
     send(room);
-    if (room.ranked && typeof io.recordRankedResult === 'function') {
-      io.recordRankedResult(room, dice.winnerId, 'dice', dice.matchId).catch(error => {
-        console.error('[accounts] dice rating update failed:', error && error.message || error);
+    if (typeof io.settleRankedRoom === 'function') {
+      io.settleRankedRoom(room, dice.winnerId, 'dice', dice.matchId).catch(error => {
+        console.error('[accounts] dice result settlement failed:', error && error.message || error);
       });
     }
   }
@@ -220,6 +220,7 @@ module.exports = function attachDice(io, ctx = {}) {
       }
 
       // A room can host either game mode, never both at once.
+      if (typeof io.prepareRankedRoom === 'function') io.prepareRankedRoom(room, 'dice');
       room.game = null;
       room.rankedResultRecorded = false;
       room.dice = {
