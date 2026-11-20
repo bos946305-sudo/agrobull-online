@@ -90,7 +90,7 @@
       html += '<button type="button" class="primary" id="accountSubmit" style="width:100%" ' +
         (busy || !connectionReady ? 'disabled' : '') + '>' +
         (busy ? 'ПОДОЖДИ…' : tab === 'login' ? 'ВОЙТИ' : 'СОЗДАТЬ АККАУНТ') + '</button>';
-      html += '<p class="account-note">Без аккаунта можно играть как гость. Рейтинг, сохранённая статистика и таблица лидеров доступны после регистрации. Пароль хранится в виде защищённого хэша.</p>';
+      html += '<p class="account-note">Без аккаунта можно играть как гость. Рейтинг, сохранённая статистика и таблица лидеров доступны после регистрации. Пароль хранится в виде защищённого хэша. Восстановления пароля пока нет: для этого нужна почта.</p>';
     } else {
       html += '<h1 style="font-size:29px">' + escapeHtml(account.name) + '</h1>';
       html += '<div class="account-stats"><span>Матчей: <b>' + account.games + '</b></span>' +
