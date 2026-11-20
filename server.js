@@ -325,6 +325,11 @@ io.on('connection', socket => {
     socket.to(room.code).emit('emote', { from: sender.id, to: target.id, e: data.e });
   });
 
+  socket.on('rankedQueue', () => {
+    // A socket may search in exactly one matchmaking queue at a time.
+    removeQuickQueue(socket, true);
+  });
+
   socket.on('quickSearchCancel', () => {
     removeQuickQueue(socket, true);
   });
