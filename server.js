@@ -173,6 +173,8 @@ function startRoomGame(room) {
   if (!room || rooms.get(room.code) !== room || room.game) return false;
   if (room.players.length < MIN_PLAYERS || !room.players.every(p => p.ready && p.connected)) return false;
   for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); p.abilityUsed = false; }
+  // A room can run only one mode at a time. Clear a finished dice match before cards start.
+  room.dice = null;
   room.game = { gameId: id(), round: 0 };
   dealRound(room);
   return true;
@@ -347,6 +349,7 @@ io.on('connection', socket => {
     const code = String(data.code || '').trim().toUpperCase().slice(0, 4);
     const room = rooms.get(code);
     if (!room) return roomError(socket, 'Комната не найдена. Проверь код.');
+    if (room.dice && room.dice.phase !== 'finished') return roomError(socket, 'Игра в кости уже идёт. Войти по коду можно после её завершения.');
     if (room.game) return roomError(socket, 'Игра уже началась. Создай новую комнату.');
     if (room.players.length >= MAX_PLAYERS) return roomError(socket, 'В комнате уже 4 игрока.');
     const profile = profileFrom(data);
