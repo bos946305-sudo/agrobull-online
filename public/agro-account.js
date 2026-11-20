@@ -45,7 +45,7 @@
     '#agroQueuePanel strong{display:block;color:#ffe6ac;font-size:13px}',
     '#agroQueuePanel small{display:block;margin-top:3px;color:#c9b99f;font-size:10px}',
     '#agroQueueCancel{flex:none;padding:8px 11px;border:1px solid #9d6145;border-radius:9px;background:#3a2019;color:#ffe1ce;font:800 10px Inter,sans-serif;cursor:pointer;touch-action:manipulation}',
-    '@media(max-width:520px){#agroQueuePanel{bottom:calc(8px + env(safe-area-inset-bottom));gap:8px;padding:10px}#agroQueuePanel strong{font-size:11px}#agroQueuePanel small{font-size:9px}#agroQueueCancel{padding:8px}}'
+    '@media(max-width:520px){#agroQueuePanel{bottom:calc(8px + env(safe-area-inset-bottom));gap:8px;padding:10px}#agroQueuePanel strong{font-size:11px}#agroQueuePanel small{font-size:9px}#agroQueueCancel{padding:8px}}',
     '@media(max-width:520px){#agroAccountOverlay{padding:8px}#agroAccountOverlay .account-modal{max-height:calc(100dvh - 16px)}#agroAccountOverlay .account-scroll{max-height:28vh}}'
   ].join('');
   document.head.appendChild(style);
