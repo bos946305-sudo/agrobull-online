@@ -315,6 +315,7 @@ io.on('connection', socket => {
         continue;
       }
       if (!!candidate.accountId !== !!accountId) continue;
+      if (accountId && candidate.accountId === accountId) continue;
       const distance = accountId ? Math.abs(Number(candidate.rating) - Number(rating)) : 0;
       const allowedDistance = 150 + Math.floor((now - (candidate.queuedAt || now)) / 15000) * 100;
       if (distance > allowedDistance) continue;
@@ -406,6 +407,9 @@ io.on('connection', socket => {
     const room = rooms.get(code);
     if (!room) return roomError(socket, 'Комната не найдена. Проверь код.');
     if (room.dice && room.dice.phase !== 'finished') return roomError(socket, 'Игра в кости уже идёт. Войти по коду можно после её завершения.');
+    if (socket.data.accountId && room.players.some(player => player.accountId === socket.data.accountId)) {
+      return roomError(socket, 'Этот аккаунт уже находится в этой комнате.');
+    }
     if (room.game) return roomError(socket, 'Игра уже началась. Создай новую комнату.');
     if (room.players.length >= MAX_PLAYERS) return roomError(socket, 'В комнате уже 4 игрока.');
     const profile = profileForSocket(socket, data);
