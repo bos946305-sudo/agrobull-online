@@ -376,7 +376,8 @@ module.exports = function attachAccounts(io, ctx = {}) {
         seated.ratings = null;
         seated.rating = null;
         if (!(activeRoom.game && activeRoom.game.phase !== 'finished') &&
-            !(activeRoom.dice && activeRoom.dice.phase !== 'finished') && sendLobby) sendLobby(activeRoom);
+            !(activeRoom.dice && activeRoom.dice.phase !== 'finished') &&
+            !(activeRoom.poker && activeRoom.poker.phase !== 'finished') && sendLobby) sendLobby(activeRoom);
       }
       socket.data.accountId = null;
       socket.data.account = null;
