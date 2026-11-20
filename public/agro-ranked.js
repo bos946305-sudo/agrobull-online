@@ -181,22 +181,5 @@
     button.onclick = open;
   }
 
-  // Registered players use the single rated queue; quick matchmaking remains for guests.
-  ['#quickBtn', '#quickDiceButton'].forEach(selector => {
-    const button = document.querySelector(selector);
-    if (!button) return;
-    const previous = button.onclick;
-    button.onclick = function (event) {
-      if (window.AgroRanked && document.querySelector('#metaProfile')) {
-        // The server still decides account status; open the rated panel for signed-in users.
-        const accountButton = document.querySelector('#metaProfile');
-        if (accountButton && /Аккаунт|Профиль|👤/.test(accountButton.textContent)) {
-          return open();
-        }
-      }
-      if (typeof previous === 'function') return previous.call(this, event);
-    };
-  });
-
   window.AgroRanked = { open, search, cancel };
 })();
