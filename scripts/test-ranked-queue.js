@@ -93,6 +93,7 @@ function setup(pairCount = 0) {
     await b.handlers.rankedQueue({ mode: 'poker', want: 2 });
     await env.io.ranked.tick();
     assert.strictEqual(env.rooms.size, 1, 'poker must use the same ranked queue');
+    await new Promise(resolve => setTimeout(resolve, 15));
     assert.strictEqual(env.started[0].mode, 'poker');
     env.io.ranked.close();
   }
