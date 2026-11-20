@@ -167,7 +167,7 @@ module.exports = function attachAccounts(io, ctx = {}) {
     const seated = room && room.players.find(player => player.id === socket.data.playerId);
     const roomActive = room && ((room.game && room.game.phase !== 'finished') ||
       (room.dice && room.dice.phase !== 'finished'));
-    if (seated && !roomActive) {
+    if (seated && !roomActive && !room.players.some(player => player.id !== seated.id && player.accountId === account.id)) {
       seated.accountId = account.id;
       seated.ratings = account.ratings;
       seated.rating = account.ratings.cards;
@@ -373,9 +373,12 @@ module.exports = function attachAccounts(io, ctx = {}) {
         let me = top.find(row => row.me) || null;
         if (!me && socket.data.accountId) {
           const position = await pool.query(
-            "SELECT COUNT(*)::integer + 1 AS rank FROM agro_accounts WHERE (rated ->> $1)::integer > 0 AND " +
-            "((ratings ->> $1)::integer, (rated ->> $1)::integer, created_at) > " +
-            "(SELECT (ratings ->> $1)::integer, (rated ->> $1)::integer, created_at FROM agro_accounts WHERE id=$2)",
+            "SELECT COUNT(*)::integer + 1 AS rank FROM agro_accounts a " +
+            "JOIN agro_accounts me ON me.id=$2 " +
+            "WHERE (a.rated ->> $1)::integer > 0 AND (" +
+            "(a.ratings ->> $1)::integer > (me.ratings ->> $1)::integer OR " +
+            "((a.ratings ->> $1)::integer = (me.ratings ->> $1)::integer AND (a.rated ->> $1)::integer > (me.rated ->> $1)::integer) OR " +
+            "((a.ratings ->> $1)::integer = (me.ratings ->> $1)::integer AND (a.rated ->> $1)::integer = (me.rated ->> $1)::integer AND a.created_at < me.created_at))",
             [mode, socket.data.accountId]
           );
           const profile = await pool.query(
