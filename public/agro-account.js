@@ -40,6 +40,12 @@
     '#agroAccountOverlay .account-leader small{color:var(--muted);font-size:10px}',
     '#agroAccountOverlay .account-scroll{max-height:32vh;overflow:auto;margin:8px 0}',
     '#agroAccountButton{white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}',
+    '#agroQueuePanel{position:fixed;z-index:50;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);display:none;align-items:center;gap:12px;width:min(520px,calc(100vw - 24px));padding:12px 14px;border:1px solid #c79a5a;border-radius:14px;background:linear-gradient(135deg,rgba(29,21,15,.97),rgba(8,7,6,.97));box-shadow:0 14px 40px #000c;color:#f3dfb8;font:600 12px/1.45 Inter,sans-serif;pointer-events:auto}',
+    '#agroQueuePanel .queue-copy{min-width:0;flex:1}',
+    '#agroQueuePanel strong{display:block;color:#ffe6ac;font-size:13px}',
+    '#agroQueuePanel small{display:block;margin-top:3px;color:#c9b99f;font-size:10px}',
+    '#agroQueueCancel{flex:none;padding:8px 11px;border:1px solid #9d6145;border-radius:9px;background:#3a2019;color:#ffe1ce;font:800 10px Inter,sans-serif;cursor:pointer;touch-action:manipulation}',
+    '@media(max-width:520px){#agroQueuePanel{bottom:calc(8px + env(safe-area-inset-bottom));gap:8px;padding:10px}#agroQueuePanel strong{font-size:11px}#agroQueuePanel small{font-size:9px}#agroQueueCancel{padding:8px}}',
     '@media(max-width:520px){#agroAccountOverlay{padding:8px}#agroAccountOverlay .account-modal{max-height:calc(100dvh - 16px)}#agroAccountOverlay .account-scroll{max-height:28vh}}'
   ].join('');
   document.head.appendChild(style);
@@ -58,6 +64,48 @@
   button.textContent = '👤 Аккаунт';
   const topRight = document.querySelector('.topright');
   if (topRight) topRight.appendChild(button);
+
+  const queuePanel = document.createElement('div');
+  queuePanel.id = 'agroQueuePanel';
+  queuePanel.setAttribute('role', 'status');
+  queuePanel.setAttribute('aria-live', 'polite');
+  queuePanel.innerHTML = '<div class="queue-copy"><strong id="agroQueueTitle"></strong><small id="agroQueueDetails"></small></div>' +
+    '<button type="button" id="agroQueueCancel">ОТМЕНИТЬ</button>';
+  document.body.appendChild(queuePanel);
+  let queueState = null;
+
+  function renderQueuePanel() {
+    if (!queueState) {
+      queuePanel.style.display = 'none';
+      return;
+    }
+    const title = queuePanel.querySelector('#agroQueueTitle');
+    const details = queuePanel.querySelector('#agroQueueDetails');
+    const cancel = queuePanel.querySelector('#agroQueueCancel');
+    const modeName = queueState.mode === 'dice' ? 'КОСТИ' : 'КАРТЫ';
+    if (queueState.phase === 'matched') {
+      title.textContent = 'СОПЕРНИК НАЙДЕН · ' + modeName;
+      details.textContent = 'Партия начнётся автоматически через ' + Math.max(0, Number(queueState.seconds) || 0) + ' сек.';
+      cancel.style.display = 'none';
+    } else {
+      title.textContent = 'ПОИСК СОПЕРНИКА · ' + modeName;
+      const wait = Math.max(0, Number(queueState.waitedSeconds) || 0);
+      const ratingText = queueState.ranked
+        ? 'ELO ' + (Number(queueState.rating) || 1000) + ' · диапазон ±' + (Number(queueState.allowedDistance) || 150)
+        : 'Гостевой матч · без изменения рейтинга';
+      details.textContent = ratingText + ' · ожидание ' + wait + ' сек.';
+      cancel.style.display = 'inline-block';
+    }
+    queuePanel.style.display = 'flex';
+  }
+
+  queuePanel.addEventListener('click', event => {
+    if (!event.target.closest('#agroQueueCancel')) return;
+    socket.emit('quickSearchCancel');
+    queueState = null;
+    renderQueuePanel();
+  });
+
   ['#quickBtn', '#quickDiceButton'].forEach(selector => {
     const quickButton = document.querySelector(selector);
     if (!quickButton) return;
@@ -210,6 +258,8 @@
   socket.on('connect', resumeSession);
   socket.on('disconnect', () => {
     connectionReady = false;
+    queueState = null;
+    renderQueuePanel();
     if (overlay.style.display === 'flex') draw();
   });
   if (socket.connected) resumeSession();
@@ -278,11 +328,55 @@
   });
 
   socket.on('quickSearching', data => {
+    queueState = { ...(data || {}), phase: 'searching' };
+    renderQueuePanel();
     if (typeof notify === 'function') {
       const modeName = data && data.mode === 'dice' ? 'в кости' : 'в картах';
       notify(data && data.ranked
         ? 'Ищем соперника близкого рейтинга ' + modeName + '…'
         : 'Ищем соперника ' + modeName + '…');
+    }
+  });
+
+  socket.on('quickQueueStatus', data => {
+    if (!queueState || queueState.phase !== 'searching') return;
+    queueState = { ...queueState, ...(data || {}), phase: 'searching' };
+    renderQueuePanel();
+  });
+
+  socket.on('quickSearchCancelled', () => {
+    queueState = null;
+    renderQueuePanel();
+    if (typeof notify === 'function') notify('Поиск соперника отменён.');
+  });
+
+  socket.on('quickMatchFound', data => {
+    queueState = { ...(data || {}), phase: 'matched', seconds: data && data.countdown || 8 };
+    renderQueuePanel();
+  });
+
+  socket.on('quickMatchCountdown', data => {
+    if (!queueState || queueState.phase !== 'matched') return;
+    queueState = { ...queueState, seconds: data && data.seconds || 0 };
+    renderQueuePanel();
+  });
+
+  socket.on('gameState', state => {
+    if (state && state.phase && state.phase !== 'lobby') {
+      queueState = null;
+      renderQueuePanel();
+    }
+  });
+
+  socket.on('diceState', () => {
+    queueState = null;
+    renderQueuePanel();
+  });
+
+  socket.on('roomError', () => {
+    if (queueState && queueState.phase === 'searching') {
+      queueState = null;
+      renderQueuePanel();
     }
   });
 
