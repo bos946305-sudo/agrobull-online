@@ -16,6 +16,7 @@ const CROPS = [
 ];
 const rooms = new Map();
 const quickQueue = [];
+const { findBestQueueMatch, queueStatus } = require('./quick-matchmaking');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: true, maxHttpBufferSize: 1e5, pingInterval: 10000, pingTimeout: 8000, cors: { origin: true, credentials: false } });
@@ -276,11 +277,32 @@ function resolveCall(room, caller) {
     dealRound(currentRoom, loser.id);
   }, 5200);
 }
-function removeQuickQueue(socket) {
+function removeQuickQueue(socket, notify = false) {
+  let removed = false;
   for (let i = quickQueue.length - 1; i >= 0; i--) {
-    if (quickQueue[i].socket === socket) quickQueue.splice(i, 1);
+    if (quickQueue[i].socket === socket) {
+      quickQueue.splice(i, 1);
+      removed = true;
+    }
+  }
+  if (removed && notify && socket.connected) socket.emit('quickSearchCancelled');
+  return removed;
+}
+
+function publishQuickQueueStatus() {
+  const now = Date.now();
+  for (let i = quickQueue.length - 1; i >= 0; i--) {
+    const entry = quickQueue[i];
+    if (!entry.socket.connected || entry.socket.data.roomCode) {
+      quickQueue.splice(i, 1);
+      continue;
+    }
+    entry.socket.emit('quickQueueStatus', queueStatus(entry, now));
   }
 }
+const quickQueueHeartbeat = setInterval(publishQuickQueueStatus, 2500);
+if (typeof quickQueueHeartbeat.unref === 'function') quickQueueHeartbeat.unref();
+
 function roomError(socket, message) { socket.emit('roomError', { message }); }
 
 io.on('connection', socket => {
@@ -299,6 +321,10 @@ io.on('connection', socket => {
     socket.to(room.code).emit('emote', { from: sender.id, to: target.id, e: data.e });
   });
 
+  socket.on('quickSearchCancel', () => {
+    removeQuickQueue(socket, true);
+  });
+
   socket.on('quickPlay', (data = {}) => {
     if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
     removeQuickQueue(socket);
@@ -308,36 +334,22 @@ io.on('connection', socket => {
     const rating = accountId ? Number(profile.ratings && profile.ratings[mode]) || 1000 : 1000;
     const now = Date.now();
     const currentEntry = { socket, profile, accountId, rating, mode, queuedAt: now };
-    let waiting = null;
-    let waitingIndex = -1;
-    let bestDistance = Infinity;
 
-    // Registered players are paired with registered players near their ELO.
-    // Guests are kept in a separate unranked queue.
+    // Prune stale sockets before searching. Rated and guest queues stay isolated.
     for (let i = quickQueue.length - 1; i >= 0; i--) {
       const candidate = quickQueue[i];
-      if (!candidate.socket.connected || candidate.socket.data.roomCode) {
-        quickQueue.splice(i, 1);
-        continue;
-      }
-      if (candidate.mode !== mode) continue;
-      if (!!candidate.accountId !== !!accountId) continue;
-      if (accountId && candidate.accountId === accountId) continue;
-      const distance = accountId ? Math.abs(Number(candidate.rating) - Number(rating)) : 0;
-      const allowedDistance = 150 + Math.floor((now - (candidate.queuedAt || now)) / 15000) * 100;
-      if (distance > allowedDistance) continue;
-      if (distance < bestDistance ||
-          (distance === bestDistance && waiting && candidate.queuedAt < waiting.queuedAt)) {
-        bestDistance = distance;
-        waiting = candidate;
-        waitingIndex = i;
-      }
+      if (!candidate.socket.connected || candidate.socket.data.roomCode) quickQueue.splice(i, 1);
     }
+    const match = findBestQueueMatch(quickQueue, currentEntry, now);
+    const waiting = match && match.entry;
+    const waitingIndex = match ? match.index : -1;
 
     if (waitingIndex >= 0) quickQueue.splice(waitingIndex, 1);
     if (!waiting) {
       quickQueue.push(currentEntry);
-      socket.emit('quickSearching', { ranked: !!accountId, rating: accountId ? rating : null, mode });
+      const status = queueStatus(currentEntry, now);
+      socket.emit('quickSearching', status);
+      socket.emit('quickQueueStatus', status);
       return;
     }
 
@@ -376,13 +388,28 @@ io.on('connection', socket => {
     waiting.socket.emit('joined', { playerId: hostPlayer.id, roomCode: code });
     socket.emit('joined', { playerId: guestPlayer.id, roomCode: code });
     sendLobby(room);
+
+    const countdownSeconds = 8;
+    io.to(code).emit('quickMatchFound', {
+      mode, ranked: !!room.ranked, countdown: countdownSeconds,
+      ratingDistance: match ? match.distance : 0
+    });
+    for (let seconds = countdownSeconds - 1; seconds >= 1; seconds--) {
+      setTimeout(() => {
+        if (rooms.get(code) === room && !room.game &&
+            !(room.dice && room.dice.phase !== 'finished')) {
+          io.to(code).emit('quickMatchCountdown', { mode, seconds });
+        }
+      }, (countdownSeconds - seconds) * 1000);
+    }
     setTimeout(() => {
+      if (rooms.get(code) !== room) return;
       if (mode === 'dice') {
         if (typeof io.startDiceRoom === 'function') io.startDiceRoom(room);
       } else {
         startRoomGame(room);
       }
-    }, 8000);
+    }, countdownSeconds * 1000);
   });
 
   socket.on('tableGesture', (data = {}) => {
@@ -396,7 +423,7 @@ io.on('connection', socket => {
   });
 
   socket.on('createRoom', (data = {}) => {
-    removeQuickQueue(socket);
+    removeQuickQueue(socket, true);
     if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
     const profile = profileForSocket(socket, data);
     const code = roomCode();
@@ -415,7 +442,7 @@ io.on('connection', socket => {
   });
 
   socket.on('joinRoom', (data = {}) => {
-    removeQuickQueue(socket);
+    removeQuickQueue(socket, true);
     if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
     const code = String(data.code || '').trim().toUpperCase().slice(0, 4);
     const room = rooms.get(code);
