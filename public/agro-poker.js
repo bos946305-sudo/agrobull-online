@@ -42,7 +42,7 @@
     busy = false; selfId = typeof getSelfId === 'function' ? getSelfId() : selfId;
     const me = lobby && (lobby.players || []).find(p => p.id === selfId);
     host = !!(me && me.isHost);
-    startButton.style.display = host ? 'block' : 'none';
+    startButton.style.display = host && !(lobby && lobby.pokerActive) ? 'block' : 'none';
     startButton.disabled = false; startButton.textContent = '🃏 Играть в покер';
     if (lobby && !lobby.pokerActive) hide();
   });
