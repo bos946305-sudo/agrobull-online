@@ -14,6 +14,21 @@ const BOTS = [
 const NOISE = { easy: 0.70, normal: 0.30, hard: 0.12 };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
+function binomialTail(n, p, k) {
+  n = Math.max(0, Math.floor(n));
+  k = Math.ceil(k);
+  p = Math.max(0, Math.min(1, p));
+  if (k <= 0) return 1;
+  if (k > n) return 0;
+  let sum = 0;
+  for (let x = k; x <= n; x++) {
+    let combinations = 1;
+    for (let i = 1; i <= x; i++) combinations *= (n - i + 1) / i;
+    sum += combinations * (p ** x) * ((1 - p) ** (n - x));
+  }
+  return Math.max(0, Math.min(1, sum));
+}
+
 module.exports = function attachBots(io, ctx = {}) {
   const roomFor = ctx.getRoomForSocket;
   const maxPlayers = Number(ctx.maxPlayers) || 4;
@@ -47,6 +62,9 @@ module.exports = function attachBots(io, ctx = {}) {
     let turnKey = '';
     let rememberedKey = '';
     let actionTimer = null;
+    let diceActionTimer = null;
+    let latestDiceState = null;
+    let diceTurnKey = '';
     let finishTimer = null;
     let pendingReleased = false;
     let closed = false;
@@ -62,6 +80,7 @@ module.exports = function attachBots(io, ctx = {}) {
       if (closed) return;
       closed = true;
       clearTimeout(actionTimer);
+      clearTimeout(diceActionTimer);
       clearTimeout(finishTimer);
       releasePending();
       client.disconnect();
@@ -77,6 +96,46 @@ module.exports = function attachBots(io, ctx = {}) {
       rec.seen++;
       if (last.cards.some(card => card.id !== state.table?.id && card.id !== 'b')) rec.lies++;
       memory.set(last.playerId, rec);
+    }
+
+    function actDice(state) {
+      if (closed || !state || state.phase !== 'bidding' || state.turnId !== playerId) return;
+      const mine = Array.isArray(state.myDice) ? state.myDice : [];
+      const total = Math.max(mine.length, Number(state.total) || mine.length);
+      const unknown = Math.max(0, total - mine.length);
+      const have = face => mine.filter(value => value === face || (face !== 1 && value === 1)).length;
+      const probability = (quantity, face) =>
+        binomialTail(unknown, face === 1 ? 1 / 6 : 2 / 6, quantity - have(face));
+      const bid = state.bid;
+
+      if (bid) {
+        const chance = probability(bid.q, bid.f);
+        const suspicion = (Number(profile.sus) - 0.5) * 0.3;
+        const uncertainty = (Math.random() - 0.5) * noise;
+        if (chance + suspicion + uncertainty < 0.35) {
+          client.emit('diceCall');
+          return;
+        }
+      }
+
+      const candidates = [];
+      const firstQuantity = bid ? bid.q : 1;
+      const lastQuantity = Math.min(total, firstQuantity + 3);
+      for (let quantity = firstQuantity; quantity <= lastQuantity; quantity++) {
+        for (let face = 1; face <= 6; face++) {
+          if (bid && !(quantity > bid.q || (quantity === bid.q && face > bid.f))) continue;
+          candidates.push({ q: quantity, f: face, chance: probability(quantity, face) });
+        }
+      }
+      if (!candidates.length) {
+        if (bid) client.emit('diceCall');
+        return;
+      }
+      candidates.sort((a, b) => b.chance - a.chance);
+      const alternate = Math.min(candidates.length - 1, 1 + Math.floor(Math.random() * 3));
+      const pick = Math.random() < (Number(profile.bluff) || 0) * 0.45
+        ? candidates[alternate] : candidates[0];
+      client.emit('diceBid', { q: pick.q, f: pick.f });
     }
 
     function chooseUnique(items, count) {
@@ -144,6 +203,15 @@ module.exports = function attachBots(io, ctx = {}) {
       if (closed || !state) return;
       latestState = state;
       remember(state);
+      if (state.phase === 'lobby') {
+        clearTimeout(actionTimer);
+        clearTimeout(diceActionTimer);
+        clearTimeout(finishTimer);
+        turnKey = '';
+        diceTurnKey = '';
+        client.emit('setReady', true);
+        return;
+      }
       const me = (state.players || []).find(p => p.id === playerId);
 
       if (state.phase === 'finished') {
@@ -181,6 +249,20 @@ module.exports = function attachBots(io, ctx = {}) {
       actionTimer = setTimeout(() => act(latestState), rnd(1200, 2800));
     });
 
+    client.on('diceState', state => {
+      if (closed || !state) return;
+      latestDiceState = state;
+      if (state.phase !== 'bidding' || state.turnId !== playerId) {
+        clearTimeout(diceActionTimer);
+        return;
+      }
+      const key = [state.round, state.bid ? state.bid.q + 'x' + state.bid.f : '-', state.turnId].join('|');
+      if (key === diceTurnKey) return;
+      diceTurnKey = key;
+      clearTimeout(diceActionTimer);
+      diceActionTimer = setTimeout(() => actDice(latestDiceState), rnd(1100, 2500));
+    });
+
     const maxLifetime = setTimeout(() => {
       if (closed) return;
       if (playerId) client.emit('leaveRoom');
@@ -189,6 +271,7 @@ module.exports = function attachBots(io, ctx = {}) {
     client.on('disconnect', () => {
       clearTimeout(maxLifetime);
       clearTimeout(actionTimer);
+      clearTimeout(diceActionTimer);
       clearTimeout(finishTimer);
       releasePending();
       closed = true;
@@ -203,7 +286,7 @@ module.exports = function attachBots(io, ctx = {}) {
         socket.emit('botsError', { message: 'Добавлять ботов может только создатель комнаты.' });
         return;
       }
-      if (room.game) {
+      if (room.game || (room.dice && room.dice.phase !== 'finished')) {
         socket.emit('botsError', { message: 'Ботов можно добавлять только до начала матча.' });
         return;
       }
