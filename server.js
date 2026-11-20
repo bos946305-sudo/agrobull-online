@@ -25,6 +25,7 @@ require('./server-bots')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYER
 require('./server-modes')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 require('./server-resilience')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS, rooms, broadcastState, sendLobby, leaveCurrentRoom });
 require('./server-dice')(io, { getRoomForSocket: roomFor, rooms, sendLobby, publicLobby });
+require('./server-poker')(io, { getRoomForSocket: roomFor, rooms, sendLobby, publicLobby });
 
 app.disable('x-powered-by');
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', setHeaders(res, filePath) { if (/\.(?:html|js)$/i.test(filePath)) { res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.setHeader('Pragma', 'no-cache'); res.setHeader('Expires', '0'); } } }));
@@ -458,6 +459,7 @@ io.on('connection', socket => {
     const room = rooms.get(code);
     if (!room) return roomError(socket, 'Комната не найдена. Проверь код.');
     if (room.dice && room.dice.phase !== 'finished') return roomError(socket, 'Игра в кости уже идёт. Войти по коду можно после её завершения.');
+    if (room.poker && room.poker.phase !== 'finished') return roomError(socket, 'Игра в покер уже идёт. Войти по коду можно после её завершения.');
     if (socket.data.accountId && room.players.some(player => player.accountId === socket.data.accountId)) {
       return roomError(socket, 'Этот аккаунт уже находится в этой комнате.');
     }
@@ -480,7 +482,7 @@ io.on('connection', socket => {
   socket.on('setReady', ready => {
     const room = roomFor(socket);
     const player = room && playerById(room, socket.data.playerId);
-    if (!room || room.game || (room.dice && room.dice.phase !== 'finished') || !player) return;
+    if (!room || room.game || (room.dice && room.dice.phase !== 'finished') || (room.poker && room.poker.phase !== 'finished') || !player) return;
     player.ready = !!ready;
     sendLobby(room);
   });
@@ -489,6 +491,7 @@ io.on('connection', socket => {
     const room = roomFor(socket);
     if (!room || socket.data.playerId !== room.hostId) return roomError(socket, 'Начать игру может только хост.');
     if (room.dice && room.dice.phase !== 'finished') return roomError(socket, 'Сначала заверши игру в кости.');
+    if (room.poker && room.poker.phase !== 'finished') return roomError(socket, 'Сначала заверши игру в покер.');
     if (room.players.length < MIN_PLAYERS) return roomError(socket, 'Нужно минимум 2 игрока.');
     if (!room.players.every(p => p.ready && p.connected)) return roomError(socket, 'Дождись готовности всех игроков.');
     startRoomGame(room);
@@ -642,6 +645,7 @@ function leaveCurrentRoom(socket) {
   if (!room) return;
   const playerId = socket.data.playerId;
   const activeDice = !!(room.dice && room.dice.phase !== 'finished');
+  const activePoker = !!(room.poker && room.poker.phase !== 'finished');
   socket.leave(code);
   const index = room.players.findIndex(p => p.id === playerId);
   if (index >= 0) {
@@ -658,6 +662,10 @@ function leaveCurrentRoom(socket) {
   if (activeDice) {
     if (typeof io.dicePlayerLeft === 'function') io.dicePlayerLeft(room, playerId);
     else if (typeof io.diceSend === 'function') io.diceSend(room);
+    return;
+  }
+  if (activePoker) {
+    if (typeof io.pokerPlayerLeft === 'function') io.pokerPlayerLeft(room, playerId);
     return;
   }
   if (room.game && room.game.phase === 'finished') {
