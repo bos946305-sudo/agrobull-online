@@ -93,7 +93,8 @@ module.exports = function attachDice(io, ctx = {}) {
         room.players.length < 2 ||
         !room.players.every(player => player.ready && player.connected !== false) ||
         (room.game && room.game.phase !== 'finished') ||
-        (room.dice && room.dice.phase !== 'finished')) return false;
+        (room.dice && room.dice.phase !== 'finished') ||
+        (room.poker && room.poker.phase !== 'finished')) return false;
 
     if (typeof io.prepareRankedRoom === 'function') io.prepareRankedRoom(room, 'dice');
     room.game = null;
@@ -225,6 +226,10 @@ module.exports = function attachDice(io, ctx = {}) {
       if (event === 'joinRoom') {
         const code = String((data && data.code) || '').trim().toUpperCase().slice(0, 4);
         const room = rooms.get(code);
+        if (room && room.poker && room.poker.phase !== 'finished') {
+          error('Игра в покер уже идёт.');
+          return next(new Error('poker-running'));
+        }
         if (room && room.dice && room.dice.phase !== 'finished') {
           error('Игра в кости уже идёт.');
           return next(new Error('dice-running'));
