@@ -306,7 +306,7 @@ module.exports = function attachRanked(io, ctx = {}) {
 
       // One account can occupy only one queue position, even across multiple sockets.
       queue = queue.filter(entry => {
-        const duplicate = entry.accId === accountId || entry.socket === socket;
+        const duplicate = entry.accountId === accountId || entry.socket === socket;
         if (duplicate && entry.socket.connected) entry.socket.emit(EV.left);
         return !duplicate;
       });
