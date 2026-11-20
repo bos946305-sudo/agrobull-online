@@ -67,7 +67,7 @@ module.exports = function attachResilience(io, ctx = {}) {
       if (event === 'leaveRoom') {
         const { room, player } = playerOf(socket);
         const activePoker = !!(room && room.game && room.game.phase !== 'finished' && player && player.alive);
-        const activeDice = !!(room && room.dice && room.dice.phase !== 'finished' && player);
+        const activeDice = !!(room && room.dice && room.dice.phase !== 'finished' && player && (room.dice.n[player.id] || 0) > 0);
         if (activePoker || activeDice) penalize(player.deviceId || socket.data.deviceId);
       }
       next();
@@ -154,7 +154,7 @@ module.exports = function attachResilience(io, ctx = {}) {
   io.onDisconnect = socket => {
     const { room, player } = playerOf(socket);
     const activePoker = !!(room && player && room.game && room.game.phase !== 'finished' && player.alive);
-    const activeDice = !!(room && player && room.dice && room.dice.phase !== 'finished');
+    const activeDice = !!(room && player && room.dice && room.dice.phase !== 'finished' && (room.dice.n[player.id] || 0) > 0);
     if (!activePoker && !activeDice) return false;
     player.connected = false;
     player.dcAt = Date.now();
