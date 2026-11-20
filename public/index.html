@@ -84,7 +84,7 @@ body.agro-game-active #agroDeckIntro,
 body.agro-game-active #agroBluffReveal,
 body.agro-game-active #agroCineBars,
 body.agro-game-active #rotate{display:none!important;visibility:hidden!important}
-body.agro-game-active .overlay:not(#setO):not(#metaProfile):not(#agroAccountOverlay):not(#rkO){display:none!important;visibility:hidden!important}
+body.agro-game-active .overlay:not(#setO):not(#metaProfile):not(#agroAccountOverlay):not(#rkO):not(#pokerO){display:none!important;visibility:hidden!important}
 body.agro-game-active #scene{display:block!important;visibility:visible!important;opacity:1!important;z-index:0!important}
 body.agro-game-active #vignette,
 body.agro-game-active #filmgrain,
@@ -577,6 +577,7 @@ if(socket){socket.on('gameState',state=>{activeState=state;update3dPile(state.pi
 <script src="/agro-dice.js" defer></script>
 <script src="/agro-account.js" defer></script>
 <script src="/agro-ranked.js" defer></script>
+<script src="/agro-poker.js" defer></script>
 
 </body>
 </html>

@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { promisify } = require('util');
 const scrypt = promisify(crypto.scrypt);
 
-const MODES = ['cards', 'dice'];
+const MODES = ['cards', 'dice', 'poker'];
 const MAX_SESSIONS = 5;
 const MAX_DAILY_PAIR_MATCHES = 5;
 const SESSION_TTL_DAYS = 30;
@@ -30,6 +30,7 @@ const SCHEMA = [
   ");",
   "CREATE INDEX IF NOT EXISTS agro_accounts_cards_rating_idx ON agro_accounts (((ratings ->> 'cards')::integer) DESC);",
   "CREATE INDEX IF NOT EXISTS agro_accounts_dice_rating_idx ON agro_accounts (((ratings ->> 'dice')::integer) DESC);",
+  "CREATE INDEX IF NOT EXISTS agro_accounts_poker_rating_idx ON agro_accounts (((ratings ->> 'poker')::integer) DESC);",
   "CREATE TABLE IF NOT EXISTS agro_sessions (",
   "  token_hash TEXT PRIMARY KEY,",
   "  account_id TEXT NOT NULL REFERENCES agro_accounts(id) ON DELETE CASCADE,",
@@ -40,12 +41,14 @@ const SCHEMA = [
   "CREATE INDEX IF NOT EXISTS agro_sessions_account_idx ON agro_sessions (account_id, created_at DESC);",
   "CREATE TABLE IF NOT EXISTS agro_matches (",
   "  match_id TEXT PRIMARY KEY,",
-  "  mode TEXT NOT NULL CHECK (mode IN ('cards','dice')),",
+  "  mode TEXT NOT NULL CHECK (mode IN ('cards','dice','poker')),",
   "  winner_player_id TEXT,",
   "  participants JSONB NOT NULL,",
   "  ranked BOOLEAN NOT NULL DEFAULT FALSE,",
   "  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()",
   ");",
+  "ALTER TABLE agro_matches DROP CONSTRAINT IF EXISTS agro_matches_mode_check;",
+  "ALTER TABLE agro_matches ADD CONSTRAINT agro_matches_mode_check CHECK (mode IN ('cards','dice','poker'));",
   "CREATE TABLE IF NOT EXISTS agro_rating_pairs (",
   "  account_low TEXT NOT NULL REFERENCES agro_accounts(id) ON DELETE CASCADE,",
   "  account_high TEXT NOT NULL REFERENCES agro_accounts(id) ON DELETE CASCADE,",
@@ -63,8 +66,8 @@ const randomId = () => crypto.randomBytes(16).toString('hex');
 const accountView = row => ({
   id: row.id,
   name: row.name,
-  ratings: { cards: Number(row.ratings && row.ratings.cards) || 1000, dice: Number(row.ratings && row.ratings.dice) || 1000 },
-  rated: { cards: Number(row.rated && row.rated.cards) || 0, dice: Number(row.rated && row.rated.dice) || 0 },
+  ratings: { cards: Number(row.ratings && row.ratings.cards) || 1000, dice: Number(row.ratings && row.ratings.dice) || 1000, poker: Number(row.ratings && row.ratings.poker) || 1000 },
+  rated: { cards: Number(row.rated && row.rated.cards) || 0, dice: Number(row.rated && row.rated.dice) || 0, poker: Number(row.rated && row.rated.poker) || 0 },
   games: Number(row.games) || 0,
   wins: Number(row.wins) || 0,
   losses: Number(row.losses) || 0,
@@ -373,7 +376,8 @@ module.exports = function attachAccounts(io, ctx = {}) {
         seated.ratings = null;
         seated.rating = null;
         if (!(activeRoom.game && activeRoom.game.phase !== 'finished') &&
-            !(activeRoom.dice && activeRoom.dice.phase !== 'finished') && sendLobby) sendLobby(activeRoom);
+            !(activeRoom.dice && activeRoom.dice.phase !== 'finished') &&
+            !(activeRoom.poker && activeRoom.poker.phase !== 'finished') && sendLobby) sendLobby(activeRoom);
       }
       socket.data.accountId = null;
       socket.data.account = null;
