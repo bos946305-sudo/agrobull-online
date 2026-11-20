@@ -42,7 +42,7 @@
     busy = false; selfId = typeof getSelfId === 'function' ? getSelfId() : selfId;
     const me = lobby && (lobby.players || []).find(p => p.id === selfId);
     host = !!(me && me.isHost);
-    startButton.style.display = host && !(lobby && lobby.pokerActive) ? 'block' : 'none';
+    startButton.style.display = host && !(lobby && (lobby.pokerActive || lobby.ranked)) ? 'block' : 'none';
     startButton.disabled = false; startButton.textContent = '🃏 Играть в покер';
     if (lobby && !lobby.pokerActive) hide();
   });
@@ -96,7 +96,7 @@
     }
     if (state.phase === 'finished') {
       html += '<div class="pkclaim">🏆 ' + esc((state.players.find(p => p.id === state.winnerId) || {}).name || 'Победитель') + ' победил!</div>' +
-        (host ? '<button class="go" id="pkAgain">Реванш</button>' : '') +
+        (host && !state.ranked ? '<button class="go" id="pkAgain">Реванш</button>' : '') +
         '<button id="pkLeave">Выйти в меню</button>';
     }
     html += '</div>';
