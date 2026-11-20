@@ -82,6 +82,7 @@ function publicLobby(room) {
     code: room.code,
     hostId: room.hostId,
     ranked: !!room.ranked,
+    pokerActive: !!(room.poker && room.poker.phase !== 'finished'),
     players: room.players.map(p => ({
       id: p.id, name: p.name, character: p.character, skin: p.skin,
       rating: Number.isFinite(p.rating) ? p.rating : null,
