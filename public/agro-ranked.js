@@ -8,7 +8,7 @@
     infoData: 'rankedInfoData', status: 'rankedStatus', found: 'rankedFound',
     error: 'rankedError', left: 'rankedLeft', ...(config.events || {})
   };
-  const modeNames = { cards: 'Карты', dice: 'Кости' };
+  const modeNames = { cards: 'Карты', dice: 'Кости', poker: 'Покер' };
   let info = null, mode = 'cards', want = 2, status = null;
   let found = null, errorText = '', countdown = 0, loading = false;
   let countdownTimer = null;
