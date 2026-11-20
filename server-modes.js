@@ -41,7 +41,7 @@ module.exports = function attach(io, ctx = {}) {
     socket.on('getSettings', () => { const r = roomFor(socket); if (r) socket.emit('settings', SET.get(r.code) || def()); });
 
     socket.on('setSettings', (d = {}) => {
-      const r = roomFor(socket); if (!r || r.game || socket.data.playerId !== r.hostId) return;
+      const r = roomFor(socket); if (!r || r.game || (r.dice && r.dice.phase !== 'finished') || socket.data.playerId !== r.hostId) return;
       const lo = clamp(d.fallMin, 1, 5, 2), hi = clamp(d.fallMax, lo, 6, 5);
       const s = { maxPlayers: clamp(d.maxPlayers, Math.max(2, r.players.length), MAXP, MAXP), turnSec: [15, 30, 60].includes(+d.turnSec) ? +d.turnSec : 30, abilities: d.abilities !== false, fallMin: lo, fallMax: hi };
       SET.set(r.code, s); io.to(r.code).emit('settings', s); io.to(r.code).emit('lobby', lobby(r));
@@ -57,7 +57,7 @@ module.exports = function attach(io, ctx = {}) {
     });
 
     socket.on('kick', (d = {}) => {
-      const r = roomFor(socket); if (!r || r.game || socket.data.playerId !== r.hostId) return;
+      const r = roomFor(socket); if (!r || r.game || (r.dice && r.dice.phase !== 'finished') || socket.data.playerId !== r.hostId) return;
       const p = r.players.find(x => x.id === d.id); if (!p || p.id === r.hostId) return;
       const s = io.sockets.sockets.get(p.socketId); if (!s) return;
       s.emit('kicked'); const h = s.listeners('leaveRoom')[0]; if (h) h();
