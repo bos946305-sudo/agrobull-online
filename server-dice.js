@@ -88,6 +88,37 @@ module.exports = function attachDice(io, ctx = {}) {
     }
   }
 
+  function startDice(room) {
+    if (!room || rooms.get(room.code) !== room ||
+        room.players.length < 2 ||
+        !room.players.every(player => player.ready && player.connected !== false) ||
+        (room.game && room.game.phase !== 'finished') ||
+        (room.dice && room.dice.phase !== 'finished')) return false;
+
+    if (typeof io.prepareRankedRoom === 'function') io.prepareRankedRoom(room, 'dice');
+    room.game = null;
+    room.rankedResultRecorded = false;
+    room.dice = {
+      matchId: room.code + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10),
+      phase: 'bidding',
+      round: 0,
+      order: room.players.map(player => player.id),
+      n: {},
+      dice: {},
+      bid: null,
+      reveal: null,
+      winnerId: null,
+      deadline: 0
+    };
+    room.players.forEach(player => {
+      room.dice.n[player.id] = DICE_PER_PLAYER;
+      player.alive = true;
+    });
+    roll(room, room.players[0].id);
+    return true;
+  }
+  io.startDiceRoom = startDice;
+
   function roll(room, starterId) {
     const dice = room.dice;
     const remaining = alive(room);
@@ -218,28 +249,7 @@ module.exports = function attachDice(io, ctx = {}) {
       if (!room.players.every(player => player.ready && player.connected !== false)) {
         return error('Дождись готовности всех игроков.');
       }
-
-      // A room can host either game mode, never both at once.
-      if (typeof io.prepareRankedRoom === 'function') io.prepareRankedRoom(room, 'dice');
-      room.game = null;
-      room.rankedResultRecorded = false;
-      room.dice = {
-        matchId: room.code + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10),
-        phase: 'bidding',
-        round: 0,
-        order: room.players.map(player => player.id),
-        n: {},
-        dice: {},
-        bid: null,
-        reveal: null,
-        winnerId: null,
-        deadline: 0
-      };
-      room.players.forEach(player => {
-        room.dice.n[player.id] = DICE_PER_PLAYER;
-        player.alive = true;
-      });
-      roll(room, room.players[0].id);
+      startDice(room);
     });
 
     socket.on('diceBid', (data = {}) => {
