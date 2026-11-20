@@ -202,7 +202,7 @@ module.exports = function attachAccounts(io, ctx = {}) {
       if (participant) player.rating = participant.rating;
     }
     const ids = participants.map(item => item.accountId).filter(Boolean);
-    const eligible = participants.length >= 2 &&
+    const eligible = !!pool && participants.length >= 2 &&
       participants.every(item => item.accountId && !item.bot) &&
       new Set(ids).size === participants.length;
     room.ranked = eligible;
