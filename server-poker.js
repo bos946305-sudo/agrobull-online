@@ -21,7 +21,9 @@ module.exports = function attachPoker(io, ctx = {}) {
   };
   const nextAlive = (room, afterId) => {
     const list = room.players;
-    const start = Math.max(0, list.findIndex(p => p.id === afterId));
+    const found = list.findIndex(p => p.id === afterId);
+    if (found < 0) return list.find(p => p.pokerAlive !== false) || null;
+    const start = found;
     for (let step = 1; step <= list.length; step++) {
       const p = list[(start + step) % list.length];
       if (p && p.pokerAlive !== false) return p;
