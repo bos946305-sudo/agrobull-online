@@ -157,6 +157,7 @@ module.exports = function attachAccounts(io, ctx = {}) {
     socket.data.accountId = account.id;
     socket.data.account = account;
     socket.data.accountTokenHash = tokenHash || hashToken(token);
+    playerAccountCache.set(account.id, account);
     socket.emit('authOk', { token, profile: account });
     return account;
   }
@@ -166,11 +167,6 @@ module.exports = function attachAccounts(io, ctx = {}) {
     if (auth.botSecret && auth.botSecret === global.__botSecret) socket.data.isBot = true;
     next();
   });
-
-  io.accountProfile = accountId => {
-    const socketAccount = null;
-    return socketAccount;
-  };
 
   io.prepareRankedRoom = (room, mode) => {
     if (!room || !MODES.includes(mode)) return false;
@@ -185,6 +181,10 @@ module.exports = function attachAccounts(io, ctx = {}) {
         rating: account ? account.ratings[mode] : (socketAccount && socketAccount.ratings && socketAccount.ratings[mode]) || 1000
       };
     });
+    for (const player of room.players) {
+      const participant = participants.find(item => item.playerId === player.id);
+      if (participant) player.rating = participant.rating;
+    }
     const ids = participants.map(item => item.accountId).filter(Boolean);
     const eligible = participants.length >= 2 &&
       participants.every(item => item.accountId && !item.bot) &&
@@ -385,8 +385,9 @@ module.exports = function attachAccounts(io, ctx = {}) {
     const participants = Array.isArray(room.rankedParticipants) ? room.rankedParticipants : [];
     if (participants.length < 2) return;
     room.rankedResultRecorded = true;
-    const client = await pool.connect();
+    let client;
     try {
+      client = await pool.connect();
       await ensureSchema();
       await client.query('BEGIN');
       const inserted = await client.query(
@@ -424,9 +425,9 @@ module.exports = function attachAccounts(io, ctx = {}) {
 
         const uniqueHumanParticipants = participants.filter(item =>
           item.accountId && !item.bot && accounts.has(item.accountId));
-        const allRated = room.ranked && uniqueHumanParticipants.length === participants.length &&
-          new Set(uniqueHumanParticipants.map(item => item.accountId)).size === participants.length &&
-          participants.every(item => item.playerId === winnerId || item.playerId);
+        const allRated = room.ranked && participants.length >= 2 &&
+          uniqueHumanParticipants.length === participants.length &&
+          new Set(uniqueHumanParticipants.map(item => item.accountId)).size === participants.length;
         const winnerParticipant = participants.find(item => item.playerId === winnerId);
         const winnerAccount = winnerParticipant && winnerParticipant.accountId &&
           uniqueHumanParticipants.find(item => item.playerId === winnerId);
@@ -440,6 +441,8 @@ module.exports = function attachAccounts(io, ctx = {}) {
           for (let i = 0; i < uniqueHumanParticipants.length; i++) {
             for (let j = i + 1; j < uniqueHumanParticipants.length; j++) {
               const ids = [uniqueHumanParticipants[i].accountId, uniqueHumanParticipants[j].accountId].sort();
+              const lockKey = mode + ':' + ids[0] + ':' + ids[1] + ':' + d0;
+              await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [lockKey]);
               const pair = await client.query(
                 'SELECT games FROM agro_rating_pairs WHERE mode=$1 AND account_low=$2 AND account_high=$3 AND played_on=$4 FOR UPDATE',
                 [mode, ids[0], ids[1], d0]
@@ -530,7 +533,7 @@ module.exports = function attachAccounts(io, ctx = {}) {
       room.rankedResultRecorded = false;
       console.error('[accounts] result settlement failed:', error && error.message || error);
     } finally {
-      client.release();
+      if (client) client.release();
     }
   }
 
