@@ -44,7 +44,7 @@
     host = !!(me && me.isHost);
     startButton.style.display = host ? 'block' : 'none';
     startButton.disabled = false; startButton.textContent = '🃏 Играть в покер';
-    if (lobby && !lobby.poker) hide();
+    if (lobby && !lobby.pokerActive) hide();
   });
   socket.on('joined', data => { if (data && data.playerId) selfId = data.playerId; });
   socket.on('gameState', snapshot => { if (snapshot && snapshot.phase !== 'lobby') hide(); });
