@@ -162,9 +162,9 @@ module.exports = function attachPoker(io, ctx = {}) {
     if (!game || game.phase === 'finished') return;
     const player = playerById(room, playerId);
     if (player) { player.pokerAlive = false; player.pokerLives = 0; }
+    if (alive(room).length <= 1) return finish(room, alive(room)[0]?.id || null);
     if (game.phase === 'playing' && game.turnId === playerId) {
       game.turnId = (nextAlive(room, playerId) || {}).id || null;
-      if (alive(room).length <= 1) return finish(room, alive(room)[0]?.id || null);
       if (!game.turnId) return finish(room, null);
       arm(room);
     }
