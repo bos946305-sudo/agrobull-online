@@ -428,7 +428,7 @@ module.exports = function attachAccounts(io, ctx = {}) {
         return;
       }
 
-      const accountIds = [...new Set(participants.map(item => item.accountId).filter(Boolean))];
+      const accountIds = [...new Set(participants.map(item => item.accountId).filter(Boolean))].sort();
       if (accountIds.length) {
         const rows = await client.query(
           'SELECT id,name,ratings,rated,games,wins,losses,streak,best FROM agro_accounts WHERE id=ANY($1::text[]) FOR UPDATE',
@@ -452,7 +452,8 @@ module.exports = function attachAccounts(io, ctx = {}) {
         }
 
         const uniqueHumanParticipants = participants.filter(item =>
-          item.accountId && !item.bot && accounts.has(item.accountId));
+          item.accountId && !item.bot && accounts.has(item.accountId))
+          .sort((a, b) => a.accountId.localeCompare(b.accountId));
         const allRated = room.ranked && participants.length >= 2 &&
           uniqueHumanParticipants.length === participants.length &&
           new Set(uniqueHumanParticipants.map(item => item.accountId)).size === participants.length;
