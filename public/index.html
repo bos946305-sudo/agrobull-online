@@ -79,13 +79,12 @@ body.agro-game-active #homeView,
 body.agro-game-active #roomView,
 body.agro-game-active #garageView,
 body.agro-game-active #resultView,
-body.agro-game-active #setO,
 body.agro-game-active #peekPanel,
 body.agro-game-active #agroDeckIntro,
 body.agro-game-active #agroBluffReveal,
 body.agro-game-active #agroCineBars,
 body.agro-game-active #rotate{display:none!important;visibility:hidden!important}
-body.agro-game-active .overlay{display:none!important;visibility:hidden!important}
+body.agro-game-active .overlay:not(#setO):not(#metaProfile):not(#agroAccountOverlay){display:none!important;visibility:hidden!important}
 body.agro-game-active #scene{display:block!important;visibility:visible!important;opacity:1!important;z-index:0!important}
 body.agro-game-active #vignette,
 body.agro-game-active #filmgrain,
