@@ -27,6 +27,7 @@ module.exports = function attachResilience(io, ctx = {}) {
   };
 
   io.use((socket, next) => {
+    if (socket.data && socket.data.isBot) return next();
     const ip = ipOf(socket), count = (ipCounts.get(ip) || 0) + 1;
     if (count > MAX_IP) return next(new Error('too-many-connections'));
     ipCounts.set(ip, count);

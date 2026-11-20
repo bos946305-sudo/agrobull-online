@@ -19,6 +19,7 @@ const quickQueue = [];
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { serveClient: true, maxHttpBufferSize: 1e5, pingInterval: 10000, pingTimeout: 8000, cors: { origin: true, credentials: false } });
+require('./server-accounts')(io, { rooms, sendLobby });
 require('./server-bots')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 require('./server-modes')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 require('./server-resilience')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS, rooms, broadcastState, sendLobby, leaveCurrentRoom });
@@ -46,6 +47,17 @@ function profileFrom(data = {}) {
   const skin = allowedSkins.has(data.skin) ? data.skin : 'classic';
   return { name: safeText(data.name, 'Игрок'), character, skin };
 }
+function profileForSocket(socket, data = {}) {
+  const profile = profileFrom(data);
+  const account = socket.data && socket.data.account;
+  if (account) profile.name = safeText(account.name, profile.name);
+  return {
+    ...profile,
+    accountId: account ? account.id : null,
+    ratings: account ? account.ratings : null,
+    rating: account ? Number(account.ratings.cards) || 1000 : null
+  };
+}
 function skillFor(player) {
   return ({
     walter: { id: 'swap', name: 'Химический обмен', hint: 'Поменять одну карту на случайную карту соперника' },
@@ -62,8 +74,10 @@ function publicLobby(room) {
   return {
     code: room.code,
     hostId: room.hostId,
+    ranked: !!room.ranked,
     players: room.players.map(p => ({
       id: p.id, name: p.name, character: p.character, skin: p.skin,
+      rating: Number.isFinite(p.rating) ? p.rating : null,
       ready: p.ready, isHost: p.id === room.hostId, connected: p.connected
     })),
     maxPlayers: typeof io.settingsOf === 'function' ? io.settingsOf(room.code).maxPlayers : MAX_PLAYERS,
@@ -89,6 +103,7 @@ function personalizedState(room, viewerId) {
     roomCode: room.code,
     phase: game.phase,
     gameId: game.gameId,
+    ranked: !!room.ranked,
     round: game.round,
     table: game.table,
     pileCount: game.pileCount,
@@ -106,6 +121,7 @@ function personalizedState(room, viewerId) {
     winnerId: game.winnerId,
     players: room.players.map(p => ({
       id: p.id, name: p.name, character: p.character, skin: p.skin,
+      rating: Number.isFinite(p.rating) ? p.rating : null,
       alive: p.alive, rides: p.rides, fallAt: 6,
       handCount: p.hand.length,
       ability: skillFor(p),
@@ -130,12 +146,17 @@ function nextPlayerWithCards(room, afterId) {
   return null;
 }
 function finishGame(room, winnerId) {
-  if (!room.game) return;
+  if (!room.game || room.game.phase === 'finished') return;
   room.game.phase = 'finished';
   room.game.currentId = null;
   room.game.winnerId = winnerId || null;
   room.game.message = winnerId ? `${playerById(room, winnerId)?.name || 'Игрок'} победил!` : 'Игра завершена';
   broadcastState(room);
+  if (typeof io.settleRankedRoom === 'function') {
+    io.settleRankedRoom(room, winnerId || null, 'cards', room.game.gameId).catch(error => {
+      console.error('[accounts] card result settlement failed:', error && error.message || error);
+    });
+  }
 }
 function dealRound(room, afterId = null) {
   const alive = activePlayers(room);
@@ -173,6 +194,8 @@ function startRoomGame(room) {
   if (!room || rooms.get(room.code) !== room || room.game) return false;
   if (room.players.length < MIN_PLAYERS || !room.players.every(p => p.ready && p.connected)) return false;
   for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); p.abilityUsed = false; }
+  // Snapshot accounts once at match start; guest and bot matches stay unranked.
+  if (typeof io.prepareRankedRoom === 'function') io.prepareRankedRoom(room, 'cards');
   // A room can run only one mode at a time. Clear a finished dice match before cards start.
   room.dice = null;
   room.game = { gameId: id(), round: 0 };
@@ -274,18 +297,42 @@ io.on('connection', socket => {
   socket.on('quickPlay', (data = {}) => {
     if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
     removeQuickQueue(socket);
-    const profile = profileFrom(data);
+    const profile = profileForSocket(socket, data);
+    const mode = data.mode === 'dice' ? 'dice' : 'cards';
+    const accountId = profile.accountId;
+    const rating = accountId ? Number(profile.ratings && profile.ratings[mode]) || 1000 : 1000;
+    const now = Date.now();
+    const currentEntry = { socket, profile, accountId, rating, mode, queuedAt: now };
     let waiting = null;
-    while (quickQueue.length) {
-      const candidate = quickQueue.shift();
-      if (candidate.socket.connected && !candidate.socket.data.roomCode && candidate.socket !== socket) {
+    let waitingIndex = -1;
+    let bestDistance = Infinity;
+
+    // Registered players are paired with registered players near their ELO.
+    // Guests are kept in a separate unranked queue.
+    for (let i = quickQueue.length - 1; i >= 0; i--) {
+      const candidate = quickQueue[i];
+      if (!candidate.socket.connected || candidate.socket.data.roomCode) {
+        quickQueue.splice(i, 1);
+        continue;
+      }
+      if (candidate.mode !== mode) continue;
+      if (!!candidate.accountId !== !!accountId) continue;
+      if (accountId && candidate.accountId === accountId) continue;
+      const distance = accountId ? Math.abs(Number(candidate.rating) - Number(rating)) : 0;
+      const allowedDistance = 150 + Math.floor((now - (candidate.queuedAt || now)) / 15000) * 100;
+      if (distance > allowedDistance) continue;
+      if (distance < bestDistance ||
+          (distance === bestDistance && waiting && candidate.queuedAt < waiting.queuedAt)) {
+        bestDistance = distance;
         waiting = candidate;
-        break;
+        waitingIndex = i;
       }
     }
+
+    if (waitingIndex >= 0) quickQueue.splice(waitingIndex, 1);
     if (!waiting) {
-      quickQueue.push({ socket, profile });
-      socket.emit('quickSearching');
+      quickQueue.push(currentEntry);
+      socket.emit('quickSearching', { ranked: !!accountId, rating: accountId ? rating : null, mode });
       return;
     }
 
@@ -300,7 +347,20 @@ io.on('connection', socket => {
       ready: true, connected: true, alive: true, rides: 0,
       fallAt: 2 + Math.floor(Math.random() * 4), hand: [], abilityUsed: false
     };
-    const room = { code, hostId: hostPlayer.id, players: [hostPlayer, guestPlayer], game: null };
+    const ranked = !!(hostPlayer.accountId && guestPlayer.accountId);
+    const room = {
+      code,
+      hostId: hostPlayer.id,
+      players: [hostPlayer, guestPlayer],
+      game: null,
+      quickMode: mode,
+      ranked,
+      rankedResultRecorded: false,
+      rankedAccounts: ranked ? [
+        { accountId: hostPlayer.accountId, rating: hostPlayer.rating },
+        { accountId: guestPlayer.accountId, rating: guestPlayer.rating }
+      ] : []
+    };
     rooms.set(code, room);
     waiting.socket.data.roomCode = code;
     waiting.socket.data.playerId = hostPlayer.id;
@@ -311,7 +371,13 @@ io.on('connection', socket => {
     waiting.socket.emit('joined', { playerId: hostPlayer.id, roomCode: code });
     socket.emit('joined', { playerId: guestPlayer.id, roomCode: code });
     sendLobby(room);
-    setTimeout(() => startRoomGame(room), 8000);
+    setTimeout(() => {
+      if (mode === 'dice') {
+        if (typeof io.startDiceRoom === 'function') io.startDiceRoom(room);
+      } else {
+        startRoomGame(room);
+      }
+    }, 8000);
   });
 
   socket.on('tableGesture', (data = {}) => {
@@ -327,7 +393,7 @@ io.on('connection', socket => {
   socket.on('createRoom', (data = {}) => {
     removeQuickQueue(socket);
     if (socket.data.roomCode) return roomError(socket, 'Сначала выйди из текущей комнаты.');
-    const profile = profileFrom(data);
+    const profile = profileForSocket(socket, data);
     const code = roomCode();
     const player = {
       id: id(), socketId: socket.id, ...profile,
@@ -350,9 +416,12 @@ io.on('connection', socket => {
     const room = rooms.get(code);
     if (!room) return roomError(socket, 'Комната не найдена. Проверь код.');
     if (room.dice && room.dice.phase !== 'finished') return roomError(socket, 'Игра в кости уже идёт. Войти по коду можно после её завершения.');
+    if (socket.data.accountId && room.players.some(player => player.accountId === socket.data.accountId)) {
+      return roomError(socket, 'Этот аккаунт уже находится в этой комнате.');
+    }
     if (room.game) return roomError(socket, 'Игра уже началась. Создай новую комнату.');
     if (room.players.length >= MAX_PLAYERS) return roomError(socket, 'В комнате уже 4 игрока.');
-    const profile = profileFrom(data);
+    const profile = profileForSocket(socket, data);
     const player = {
       id: id(), socketId: socket.id, ...profile,
       ready: false, connected: true, alive: true, rides: 0,

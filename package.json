@@ -8,7 +8,7 @@
     "start": "node server.js",
     "check": "node scripts/check-project.js",
     "prestart": "npm run check && npm test",
-    "test": "node scripts/test-dice-rooms.js"
+    "test": "node scripts/test-dice-rooms.js && node scripts/test-accounts.js"
   },
   "engines": {
     "node": ">=20"
@@ -16,6 +16,7 @@
   "dependencies": {
     "express": "^4.21.2",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "pg": "^8.23.1"
   }
 }

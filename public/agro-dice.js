@@ -33,6 +33,22 @@
   overlay.id = 'diceO';
   document.body.appendChild(overlay);
 
+  const quickDiceButton = document.createElement('button');
+  quickDiceButton.type = 'button';
+  quickDiceButton.id = 'quickDiceButton';
+  quickDiceButton.className = 'primary';
+  quickDiceButton.textContent = '🎲 НАЙТИ СОПЕРНИКА В КОСТИ';
+  quickDiceButton.style.cssText = 'width:100%;margin-top:8px;background:linear-gradient(180deg,#e8b84a,#a8741f);border-color:#ffe6ac';
+  const quickCardButton = document.querySelector('#quickBtn');
+  if (quickCardButton) quickCardButton.insertAdjacentElement('afterend', quickDiceButton);
+
+  quickDiceButton.onclick = () => {
+    if (!socket.connected) return typeof notify === 'function' && notify('Нет соединения с сервером');
+    if (typeof emitProfile !== 'function') return;
+    socket.emit('quickPlay', { ...emitProfile(), mode: 'dice' });
+    if (typeof notify === 'function') notify('Ищем соперника в режиме «Кости»…');
+  };
+
   const startButton = document.createElement('button');
   startButton.type = 'button';
   startButton.id = 'diceStartButton';
