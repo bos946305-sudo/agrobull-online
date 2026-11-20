@@ -5,7 +5,7 @@
 
   const TOKEN_KEY = 'agro_auth_v1';
   const PROMPT_KEY = 'agro_account_prompted_v1';
-  const MODES = { cards: 'Карты', dice: 'Кости' };
+  const MODES = { cards: 'Карты', dice: 'Кости', poker: 'Покер' };
   let token = '';
   let account = null;
   let tab = 'login';
@@ -82,7 +82,7 @@
     const title = queuePanel.querySelector('#agroQueueTitle');
     const details = queuePanel.querySelector('#agroQueueDetails');
     const cancel = queuePanel.querySelector('#agroQueueCancel');
-    const modeName = queueState.mode === 'dice' ? 'КОСТИ' : 'КАРТЫ';
+    const modeName = queueState.mode === 'dice' ? 'КОСТИ' : queueState.mode === 'poker' ? 'ПОКЕР' : 'КАРТЫ';
     if (queueState.phase === 'matched') {
       title.textContent = 'СОПЕРНИК НАЙДЕН · ' + modeName;
       details.textContent = 'Партия начнётся автоматически через ' + Math.max(0, Number(queueState.seconds) || 0) + ' сек.';
@@ -332,7 +332,7 @@
     queueState = { ...(data || {}), phase: 'searching' };
     renderQueuePanel();
     if (typeof notify === 'function') {
-      const modeName = data && data.mode === 'dice' ? 'в кости' : 'в картах';
+      const modeName = data && data.mode === 'dice' ? 'в кости' : data && data.mode === 'poker' ? 'в покер' : 'в картах';
       notify(data && data.ranked
         ? 'Ищем соперника близкого рейтинга ' + modeName + '…'
         : 'Ищем соперника ' + modeName + '…');
