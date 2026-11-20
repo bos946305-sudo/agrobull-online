@@ -42,12 +42,12 @@
   const quickCardButton = document.querySelector('#quickBtn');
   if (quickCardButton) quickCardButton.insertAdjacentElement('afterend', quickDiceButton);
 
-  quickDiceButton.addEventListener('click', () => {
+  quickDiceButton.onclick = () => {
     if (!socket.connected) return typeof notify === 'function' && notify('Нет соединения с сервером');
     if (typeof emitProfile !== 'function') return;
     socket.emit('quickPlay', { ...emitProfile(), mode: 'dice' });
     if (typeof notify === 'function') notify('Ищем соперника в режиме «Кости»…');
-  });
+  };
 
   const startButton = document.createElement('button');
   startButton.type = 'button';
