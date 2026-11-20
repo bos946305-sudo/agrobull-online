@@ -249,6 +249,7 @@ module.exports = function attachDice(io, ctx = {}) {
     socket.on('diceRematch', () => {
       const room = roomFor(socket);
       if (!room || !room.dice || room.dice.phase !== 'finished' ||
+          (room.game && room.game.phase !== 'finished') ||
           socket.data.playerId !== room.hostId) return;
 
       room.dice = null;
