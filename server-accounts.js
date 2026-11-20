@@ -92,7 +92,7 @@ function calculateElo(players) {
 }
 
 module.exports = function attachAccounts(io, ctx = {}) {
-  const { rooms } = ctx;
+  const { rooms, sendLobby } = ctx;
   if (!rooms) throw new TypeError('server-accounts: pass { rooms }');
 
   let Pool;
@@ -158,6 +158,17 @@ module.exports = function attachAccounts(io, ctx = {}) {
     socket.data.account = account;
     socket.data.accountTokenHash = tokenHash || hashToken(token);
     playerAccountCache.set(account.id, account);
+    const room = socket.data.roomCode && rooms.get(socket.data.roomCode);
+    const seated = room && room.players.find(player => player.id === socket.data.playerId);
+    const roomActive = room && ((room.game && room.game.phase !== 'finished') ||
+      (room.dice && room.dice.phase !== 'finished'));
+    if (seated && !roomActive) {
+      seated.accountId = account.id;
+      seated.ratings = account.ratings;
+      seated.rating = account.ratings.cards;
+      seated.name = account.name;
+      if (sendLobby) sendLobby(room);
+    }
     socket.emit('authOk', { token, profile: account });
     return account;
   }
@@ -502,11 +513,15 @@ module.exports = function attachAccounts(io, ctx = {}) {
           if (!row || item.bot) continue;
           const profile = accountView(row);
           playerAccountCache.set(row.id, profile);
+          for (const connectedSocket of io.sockets.sockets.values()) {
+            if (connectedSocket.data.accountId === row.id) {
+              connectedSocket.data.account = profile;
+              connectedSocket.emit('profile', profile);
+            }
+          }
           const player = room.players.find(value => value.id === item.playerId);
           const playerSocket = player && (io.sockets.sockets.get(player.socketId) || player._sock);
           if (playerSocket) {
-            playerSocket.data.account = profile;
-            playerSocket.emit('profile', profile);
             if (rated) playerSocket.emit('ratingChange', {
               mode,
               delta: Number(row._ratingDelta) || 0,
