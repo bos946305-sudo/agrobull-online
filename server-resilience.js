@@ -66,9 +66,9 @@ module.exports = function attachResilience(io, ctx = {}) {
       }
       if (event === 'leaveRoom') {
         const { room, player } = playerOf(socket);
-        if (room && room.game && room.game.phase !== 'finished' && player && player.alive) {
-          penalize(player.deviceId || socket.data.deviceId);
-        }
+        const activePoker = !!(room && room.game && room.game.phase !== 'finished' && player && player.alive);
+        const activeDice = !!(room && room.dice && room.dice.phase !== 'finished' && player);
+        if (activePoker || activeDice) penalize(player.deviceId || socket.data.deviceId);
       }
       next();
     });
@@ -110,8 +110,14 @@ module.exports = function attachResilience(io, ctx = {}) {
       socket.data.deviceId = player.deviceId || socket.data.deviceId;
       socket.join(room.code);
       socket.emit('joined', { playerId: player.id, roomCode: room.code, rejoined: true });
-      if (room.game) broadcastState(room); else sendLobby(room);
-      sendLobby(room);
+      if (room.dice && room.dice.phase !== 'finished' && typeof io.diceSend === 'function') {
+        io.diceSend(room);
+      } else if (room.game) {
+        broadcastState(room);
+        sendLobby(room);
+      } else {
+        sendLobby(room);
+      }
     });
 
     socket.on('ping2', (_sentAt, ack) => { if (typeof ack === 'function') ack(); });
@@ -147,12 +153,18 @@ module.exports = function attachResilience(io, ctx = {}) {
 
   io.onDisconnect = socket => {
     const { room, player } = playerOf(socket);
-    if (!room || !player || !room.game || room.game.phase === 'finished' || !player.alive) return false;
+    const activePoker = !!(room && player && room.game && room.game.phase !== 'finished' && player.alive);
+    const activeDice = !!(room && player && room.dice && room.dice.phase !== 'finished');
+    if (!activePoker && !activeDice) return false;
     player.connected = false;
     player.dcAt = Date.now();
     player._sock = socket;
-    broadcastState(room);
-    sendLobby(room);
+    if (activeDice && typeof io.diceSend === 'function') {
+      io.diceSend(room);
+    } else {
+      broadcastState(room);
+      sendLobby(room);
+    }
     setTimeout(() => {
       if (player.connected || rooms.get(room.code) !== room || !room.players.includes(player)) return;
       penalize(player.deviceId || socket.data.deviceId);
