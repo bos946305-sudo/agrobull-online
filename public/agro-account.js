@@ -57,8 +57,9 @@
   button.textContent = '👤 Аккаунт';
   const topRight = document.querySelector('.topright');
   if (topRight) topRight.appendChild(button);
-  const quickButton = document.querySelector('#quickBtn');
-  if (quickButton) {
+  ['#quickBtn', '#quickDiceButton'].forEach(selector => {
+    const quickButton = document.querySelector(selector);
+    if (!quickButton) return;
     const originalQuickPlay = quickButton.onclick;
     quickButton.onclick = function (event) {
       if (token && !account) {
@@ -67,7 +68,7 @@
       }
       if (typeof originalQuickPlay === 'function') return originalQuickPlay.call(this, event);
     };
-  }
+  });
 
   function updateButton() {
     button.textContent = account ? '👤 ' + account.name : '👤 Аккаунт';
