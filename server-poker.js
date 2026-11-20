@@ -178,6 +178,7 @@ module.exports = function attachPoker(io, ctx = {}) {
     socket.on('pokerStart', () => {
       const room = roomFor(socket);
       if (!room || socket.data.playerId !== room.hostId) return error('Начать может только хост.');
+      if (room.ranked) return error('Рейтинговая игра запускается автоматически.');
       if (!startPoker(room)) return error('Нужно 2–4 готовых игрока. Заверши текущую игру перед стартом покера.');
       if (sendLobby) sendLobby(room);
     });
