@@ -18,10 +18,11 @@ const rooms = new Map();
 const quickQueue = [];
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { serveClient: true, cors: { origin: true, credentials: false } });
+const io = new Server(server, { serveClient: true, maxHttpBufferSize: 1e5, pingInterval: 10000, pingTimeout: 8000, cors: { origin: true, credentials: false } });
 require('./server-bots')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 require('./server-modes')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS });
 require('./server-resilience')(io, { getRoomForSocket: roomFor, maxPlayers: MAX_PLAYERS, rooms, broadcastState, sendLobby, leaveCurrentRoom });
+require('./server-dice')(io, { getRoomForSocket: roomFor, rooms, sendLobby, publicLobby });
 
 app.disable('x-powered-by');
 app.use(express.static(path.join(__dirname, 'public'), { maxAge: '1h', setHeaders(res, filePath) { if (/\.(?:html|js)$/i.test(filePath)) { res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate'); res.setHeader('Pragma', 'no-cache'); res.setHeader('Expires', '0'); } } }));
@@ -365,7 +366,7 @@ io.on('connection', socket => {
   socket.on('setReady', ready => {
     const room = roomFor(socket);
     const player = room && playerById(room, socket.data.playerId);
-    if (!room || room.game || !player) return;
+    if (!room || room.game || (room.dice && room.dice.phase !== 'finished') || !player) return;
     player.ready = !!ready;
     sendLobby(room);
   });
@@ -373,6 +374,7 @@ io.on('connection', socket => {
   socket.on('startGame', () => {
     const room = roomFor(socket);
     if (!room || socket.data.playerId !== room.hostId) return roomError(socket, 'Начать игру может только хост.');
+    if (room.dice && room.dice.phase !== 'finished') return roomError(socket, 'Сначала заверши игру в кости.');
     if (room.players.length < MIN_PLAYERS) return roomError(socket, 'Нужно минимум 2 игрока.');
     if (!room.players.every(p => p.ready && p.connected)) return roomError(socket, 'Дождись готовности всех игроков.');
     startRoomGame(room);
@@ -525,6 +527,7 @@ function leaveCurrentRoom(socket) {
   const room = code && rooms.get(code);
   if (!room) return;
   const playerId = socket.data.playerId;
+  const activeDice = !!(room.dice && room.dice.phase !== 'finished');
   socket.leave(code);
   const index = room.players.findIndex(p => p.id === playerId);
   if (index >= 0) {
@@ -538,6 +541,11 @@ function leaveCurrentRoom(socket) {
     return;
   }
   if (room.hostId === playerId) room.hostId = room.players[0].id;
+  if (activeDice) {
+    if (typeof io.dicePlayerLeft === 'function') io.dicePlayerLeft(room, playerId);
+    else if (typeof io.diceSend === 'function') io.diceSend(room);
+    return;
+  }
   if (room.game && room.game.phase === 'finished') {
     broadcastState(room);
     return;
