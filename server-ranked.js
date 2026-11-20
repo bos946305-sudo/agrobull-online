@@ -73,7 +73,9 @@ module.exports = function attachRanked(io, ctx = {}) {
     const cached = pairs.get(key);
     if (cached && Date.now() - cached.at < CFG.cacheMs) return cached.count;
     try {
-      const count = Number(await withTimeout(() => provider.getPairCount(a, b)));
+      const rawCount = await withTimeout(() => provider.getPairCount(a, b));
+      if (rawCount === null || rawCount === undefined || rawCount === '') return null;
+      const count = Number(rawCount);
       if (!Number.isFinite(count) || count < 0) return null;
       pairs.set(key, { count, at: Date.now() });
       return count;
@@ -263,7 +265,9 @@ module.exports = function attachRanked(io, ctx = {}) {
       try {
         const ratings = {};
         for (const mode of MODES) {
-          const rating = Number(await withTimeout(() => provider.getRating(accountId, mode)));
+          const rawRating = await withTimeout(() => provider.getRating(accountId, mode));
+          if (rawRating === null || rawRating === undefined || rawRating === '') throw new Error('rating-unavailable');
+          const rating = Number(rawRating);
           if (!Number.isFinite(rating)) throw new Error('rating-unavailable');
           ratings[mode] = rating;
         }
@@ -296,7 +300,9 @@ module.exports = function attachRanked(io, ctx = {}) {
       let rating;
       let name = null;
       try {
-        rating = Number(await withTimeout(() => provider.getRating(accountId, mode)));
+        const rawRating = await withTimeout(() => provider.getRating(accountId, mode));
+        if (rawRating === null || rawRating === undefined || rawRating === '') return fail('Рейтинг не найден — войди заново.');
+        rating = Number(rawRating);
         if (!Number.isFinite(rating)) return fail('Рейтинг не найден — войди заново.');
         if (provider.getName) name = await withTimeout(() => provider.getName(accountId)).catch(() => null);
       } catch (_) {
