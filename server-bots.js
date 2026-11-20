@@ -5,6 +5,8 @@
  */
 const { io: ioc } = require('socket.io-client');
 
+const PokerCore = require('./poker-core');
+
 const BOTS = [
   { n: 'Бот Агрессор', ch: 'gus', skin: 'copper', bluff: 0.70, sus: 0.80, wild: 0 },
   { n: 'Бот Хитрец', ch: 'saul', skin: 'lawyer', bluff: 0.50, sus: 0.55, wild: 0 },
@@ -64,6 +66,9 @@ module.exports = function attachBots(io, ctx = {}) {
     let rememberedKey = '';
     let actionTimer = null;
     let diceActionTimer = null;
+    let pokerActionTimer = null;
+    let latestPokerState = null;
+    let pokerTurnKey = '';
     let latestDiceState = null;
     let diceTurnKey = '';
     let finishTimer = null;
@@ -82,6 +87,7 @@ module.exports = function attachBots(io, ctx = {}) {
       closed = true;
       clearTimeout(actionTimer);
       clearTimeout(diceActionTimer);
+      clearTimeout(pokerActionTimer);
       clearTimeout(finishTimer);
       releasePending();
       client.disconnect();
@@ -262,6 +268,65 @@ module.exports = function attachBots(io, ctx = {}) {
       diceTurnKey = key;
       clearTimeout(diceActionTimer);
       diceActionTimer = setTimeout(() => actDice(latestDiceState), rnd(1100, 2500));
+    });
+
+    function cardCode(name) {
+      const value = String(name || '');
+      const suit = PokerCore.SUITS.indexOf(value.slice(-1));
+      const rank = PokerCore.RANKS.indexOf(value.slice(0, -1));
+      return rank < 0 || suit < 0 ? -1 : rank * 4 + suit;
+    }
+    function actPoker(state) {
+      if (closed || !state || state.phase !== 'playing' || state.turnId !== playerId) return;
+      const me = (state.players || []).find(p => p.id === playerId);
+      const mine = (me && Array.isArray(me.hand) ? me.hand : []).map(cardCode);
+      if (!mine.length || mine.some(card => card < 0)) return;
+      const unknown = Math.max(0, (state.players || []).filter(p => p.alive).length * 5 - mine.length);
+      const current = state.claim;
+      const candidates = (state.claims || []).filter(claim => !current ||
+        PokerCore.cmp(claim, current) > 0).slice(0, 28);
+      if (current) {
+        let chance = 0.5;
+        try { chance = PokerCore.prob(mine, unknown, current, 55); } catch (_) {}
+        const suspicion = (Number(profile.sus) - 0.5) * 0.24;
+        if (chance + suspicion + (Math.random() - 0.5) * noise < 0.29) {
+          client.emit('pokerCall');
+          return;
+        }
+      }
+      if (!candidates.length) {
+        if (current) client.emit('pokerCall');
+        return;
+      }
+      const ranked = candidates.map(claim => {
+        let chance = 0;
+        try { chance = PokerCore.prob(mine, unknown, claim, 35); } catch (_) {}
+        return { claim, chance };
+      }).sort((a,b) => b.chance - a.chance);
+      const pick = ranked[Math.floor(Math.random() * Math.min(4, ranked.length))] || ranked[0];
+      client.emit('pokerClaim', { claim: pick.claim });
+    }
+
+    client.on('pokerState', state => {
+      if (closed || !state) return;
+      latestPokerState = state;
+      if (state.phase === 'finished') {
+        clearTimeout(pokerActionTimer);
+        if (!finishTimer) finishTimer = setTimeout(() => {
+          client.emit('leaveRoom');
+          stop();
+        }, 45000);
+        return;
+      }
+      if (state.phase !== 'playing' || state.turnId !== playerId) {
+        clearTimeout(pokerActionTimer);
+        return;
+      }
+      const key = [state.round, state.turnId, state.claim ? PokerCore.ALL.findIndex(c => PokerCore.cmp(c,state.claim)===0) : -1].join('|');
+      if (key === pokerTurnKey) return;
+      pokerTurnKey = key;
+      clearTimeout(pokerActionTimer);
+      pokerActionTimer = setTimeout(() => actPoker(latestPokerState), rnd(1000, 2200));
     });
 
     const maxLifetime = setTimeout(() => {
