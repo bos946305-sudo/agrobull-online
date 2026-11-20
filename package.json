@@ -8,7 +8,7 @@
     "start": "node server.js",
     "check": "node scripts/check-project.js",
     "prestart": "npm run check && npm test",
-    "test": "node scripts/test-dice-rooms.js && node scripts/test-accounts.js && node scripts/test-quick-matchmaking.js && node scripts/test-poker-core.js"
+    "test": "node scripts/test-dice-rooms.js && node scripts/test-accounts.js && node scripts/test-quick-matchmaking.js && node scripts/test-poker-core.js && node scripts/test-ranked-queue.js"
   },
   "engines": {
     "node": ">=20"

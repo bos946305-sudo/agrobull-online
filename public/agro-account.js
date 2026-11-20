@@ -115,6 +115,7 @@
         if (typeof notify === 'function') notify('Восстанавливаем аккаунт — подожди секунду.');
         return;
       }
+      if (account && window.AgroRanked) return window.AgroRanked.open();
       if (typeof originalQuickPlay === 'function') return originalQuickPlay.call(this, event);
     };
   });

@@ -209,6 +209,10 @@ function startRoomGame(room) {
   return true;
 }
 
+// Public entry point used by the unified ranked queue (no private Socket.IO listener calls).
+io.startCardsRoom = startRoomGame;
+require('./server-ranked')(io, { getRoomForSocket: roomFor, rooms, sendLobby });
+
 function resolveCall(room, caller) {
   const game = room.game;
   const last = game.lastPlay;
@@ -321,6 +325,11 @@ io.on('connection', socket => {
     socket.to(room.code).emit('emote', { from: sender.id, to: target.id, e: data.e });
   });
 
+  socket.on('rankedQueue', () => {
+    // A socket may search in exactly one matchmaking queue at a time.
+    removeQuickQueue(socket, true);
+  });
+
   socket.on('quickSearchCancel', () => {
     removeQuickQueue(socket, true);
   });
@@ -331,7 +340,8 @@ io.on('connection', socket => {
     const profile = profileForSocket(socket, data);
     const mode = data.mode === 'dice' ? 'dice' : 'cards';
     const accountId = profile.accountId;
-    const rating = accountId ? Number(profile.ratings && profile.ratings[mode]) || 1000 : 1000;
+    if (accountId) return roomError(socket, 'Для рейтингового поиска используй кнопку «Рейтинговая игра». Быстрый поиск оставлен для гостей.');
+    const rating = 1000;
     const now = Date.now();
     const currentEntry = { socket, profile, accountId, rating, mode, queuedAt: now };
 

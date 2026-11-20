@@ -215,6 +215,34 @@ module.exports = function attachAccounts(io, ctx = {}) {
   const playerAccountCache = new Map();
   io.accountProfile = accountId => playerAccountCache.get(accountId) || null;
 
+  // Async data provider for the single ranked matchmaking queue.
+  // The pair counter uses the same UTC date boundary as match settlement.
+  io.rankedProvider = {
+    async getRating(accountId, mode) {
+      if (!pool || !MODES.includes(mode)) return null;
+      await ensureSchema();
+      const result = await pool.query('SELECT ratings FROM agro_accounts WHERE id=$1', [String(accountId)]);
+      if (!result.rows[0]) return null;
+      return Number(result.rows[0].ratings && result.rows[0].ratings[mode]) || 1000;
+    },
+    async getName(accountId) {
+      if (!pool) return null;
+      await ensureSchema();
+      const result = await pool.query('SELECT name FROM agro_accounts WHERE id=$1', [String(accountId)]);
+      return result.rows[0] ? result.rows[0].name : null;
+    },
+    async getPairCount(accountIdA, accountIdB) {
+      if (!pool || !accountIdA || !accountIdB || accountIdA === accountIdB) return null;
+      await ensureSchema();
+      const ids = [String(accountIdA), String(accountIdB)].sort();
+      const result = await pool.query(
+        "SELECT games FROM agro_rating_pairs WHERE account_low=$1 AND account_high=$2 AND played_on=(NOW() AT TIME ZONE 'UTC')::date",
+        ids
+      );
+      return Number(result.rows[0] && result.rows[0].games || 0);
+    }
+  };
+
   async function authenticate(socket, event, data = {}) {
     const ip = requestIp(socket);
     const fail = message => socket.emit('authError', { message });
@@ -525,6 +553,9 @@ module.exports = function attachAccounts(io, ctx = {}) {
           [String(matchId), rated]
         );
         await client.query('COMMIT');
+        if (rated && typeof io.rankedInvalidatePairs === 'function') {
+          io.rankedInvalidatePairs(uniqueHumanParticipants.map(item => item.accountId));
+        }
 
         for (const item of participants) {
           const row = item.accountId && accounts.get(item.accountId);
