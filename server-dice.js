@@ -29,6 +29,7 @@ module.exports = function attachDice(io, ctx = {}) {
     const dice = room.dice;
     return {
       roomCode: room.code,
+      ranked: !!room.ranked,
       phase: dice.phase,
       round: dice.round,
       turnId: dice.turnId,
@@ -42,6 +43,7 @@ module.exports = function attachDice(io, ctx = {}) {
         name: player.name,
         character: player.character,
         skin: player.skin,
+        rating: Number.isFinite(player.rating) ? player.rating : null,
         n: dice.n[player.id] || 0,
         alive: (dice.n[player.id] || 0) > 0
       })),
@@ -79,6 +81,11 @@ module.exports = function attachDice(io, ctx = {}) {
     dice.winnerId = remaining[0] || null;
     dice.message = remaining[0] ? nameOf(room, remaining[0]) + ' побеждает!' : 'Игра окончена';
     send(room);
+    if (room.ranked && typeof io.recordRankedResult === 'function') {
+      io.recordRankedResult(room, dice.winnerId, 'dice', dice.matchId).catch(error => {
+        console.error('[accounts] dice rating update failed:', error && error.message || error);
+      });
+    }
   }
 
   function roll(room, starterId) {
@@ -214,7 +221,9 @@ module.exports = function attachDice(io, ctx = {}) {
 
       // A room can host either game mode, never both at once.
       room.game = null;
+      room.rankedResultRecorded = false;
       room.dice = {
+        matchId: room.code + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10),
         phase: 'bidding',
         round: 0,
         order: room.players.map(player => player.id),
@@ -254,6 +263,9 @@ module.exports = function attachDice(io, ctx = {}) {
 
       room.dice = null;
       room.game = null;
+      room.ranked = false;
+      room.rankedAccounts = [];
+      room.rankedResultRecorded = false;
       room.players.forEach(player => {
         player.alive = true;
         player.rides = 0;
