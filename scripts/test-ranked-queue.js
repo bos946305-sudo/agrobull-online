@@ -11,6 +11,7 @@ function setup(pairCount = 0, options = {}) {
     sockets: { sockets: new Map() }
   };
   const started = [];
+  const lobbyUpdates = [];
   const provider = {
     async getRating(id) { return id === 'a' ? 1000 : 1010; },
     async getPairCount() { return pairCount; },
@@ -19,7 +20,7 @@ function setup(pairCount = 0, options = {}) {
   const context = {
     getRoomForSocket: socket => socket.data.roomCode ? rooms.get(socket.data.roomCode) : null,
     rooms,
-    sendLobby() {},
+    sendLobby(room) { lobbyUpdates.push(room); },
     startMatch(room, mode) { started.push({ room, mode }); },
     window: { startIn: 5, cacheMs: 10 }
   };
@@ -39,7 +40,7 @@ function setup(pairCount = 0, options = {}) {
     listeners.connection(s);
     return s;
   }
-  return { io, rooms, started, socket };
+  return { io, rooms, started, lobbyUpdates, socket };
 }
 
 (async () => {
@@ -93,6 +94,28 @@ function setup(pairCount = 0, options = {}) {
     await env.io.ranked.tick();
     assert.strictEqual(env.io.ranked.size(), 1, 'сокет, вошедший в другую комнату, должен удалиться из очереди');
     assert.strictEqual(env.rooms.size, 0);
+    env.io.ranked.close();
+  }
+  {
+    // A player leaving during the five-second found countdown must not strand
+    // the remaining player in a ranked room that rejects normal joins.
+    const env = setup(0);
+    const a = env.socket('socket-a', 'a');
+    const b = env.socket('socket-b', 'b');
+    await a.handlers.rankedQueue({ mode: 'cards', want: 2 });
+    await b.handlers.rankedQueue({ mode: 'cards', want: 2 });
+    await env.io.ranked.tick();
+    const room = [...env.rooms.values()][0];
+    assert(room && room.ranked, 'newly matched room must be marked ranked');
+    room.players.splice(1, 1);
+    b.data.roomCode = null;
+    await new Promise(resolve => setTimeout(resolve, 15));
+    assert.strictEqual(room.ranked, false, 'orphaned room must return to casual lobby');
+    assert.strictEqual(room.rankedParticipants.length, 0, 'ranked participant snapshot must be cleared');
+    assert(env.lobbyUpdates.includes(room), 'updated casual lobby must be broadcast');
+    assert(a.outbound.some(item => item.event === 'rankedError' &&
+      /снова доступна для обычной игры/i.test(item.data.message)),
+      'remaining player must receive a clear recovery message');
     env.io.ranked.close();
   }
   {
