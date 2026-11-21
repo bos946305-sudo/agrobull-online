@@ -215,6 +215,7 @@ function startRoomGame(room) {
 io.startCardsRoom = startRoomGame;
 require('./server-ranked')(io, { getRoomForSocket: roomFor, rooms, sendLobby });
 require('./server-social')(io, { getRoomForSocket: roomFor, rooms, maxPlayers: MAX_PLAYERS });
+require('./server-voice')(io, { getRoomForSocket: roomFor });
 
 function resolveCall(room, caller) {
   const game = room.game;
