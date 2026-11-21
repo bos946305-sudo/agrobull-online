@@ -57,6 +57,7 @@ module.exports = function attachVoice(io, ctx = {}) {
       if (context) {
         peers(context).forEach(item => item.socket.emit('voicePeerLeft', { id: context.player.id }));
       }
+      socket.emit('voiceForceLeave');
     }
 
     // A room exit must also remove this socket from voice before room membership changes.
@@ -68,6 +69,10 @@ module.exports = function attachVoice(io, ctx = {}) {
     socket.on('voiceJoin', () => {
       const context = current();
       if (!context) return;
+      if (!getAccountId(socket)) {
+        socket.emit('voiceError', { message: 'Голосовой чат доступен только игрокам с аккаунтом.' });
+        return;
+      }
       socket.data.voice = true;
       const activePeers = peers(context);
       socket.emit('voiceConfig', {
