@@ -24,15 +24,35 @@ module.exports = function attachRanked(io, ctx = {}) {
   const MODES = ctx.modes || ['cards', 'dice', 'poker'];
   const SIZES = [2, 4];
   const LOCKED = [
+    // Manual starts/rematches must not override the mode selected by ranked matchmaking.
+    'startGame', 'diceStart', 'pokerStart',
     'addBots', 'setSettings', 'kick', 'rematch', 'diceRematch', 'pokerRematch',
     ...(ctx.lockedEvents || [])
   ];
   const CHARS = ['walter', 'saul', 'jesse', 'gus'];
   const SKINS = ['classic', 'hazmat', 'lawyer', 'neon', 'copper', 'midnight'];
-  const provider = ctx.provider || io.rankedProvider;
-  if (!provider || typeof provider.getRating !== 'function' ||
-      typeof provider.getPairCount !== 'function') {
-    throw new Error('server-ranked: не подключён async provider рейтинга и лимитов пар');
+  // Resolve the provider when it is used, not when this module is attached.
+  // server-accounts may finish wiring io.rankedProvider after other modules attach.
+  function getProvider() {
+    const candidates = [ctx.provider, io.rankedProvider];
+    return candidates.find(candidate =>
+      candidate &&
+      typeof candidate.getRating === 'function' &&
+      typeof candidate.getPairCount === 'function'
+    ) || null;
+  }
+
+  function hasProviderMethod(method) {
+    const current = getProvider();
+    return !!(current && typeof current[method] === 'function');
+  }
+
+  async function providerCall(method, ...args) {
+    const current = getProvider();
+    if (!current || typeof current[method] !== 'function') {
+      throw new Error('ranked-provider-' + method + '-unavailable');
+    }
+    return withTimeout(() => current[method](...args));
   }
 
   let queue = [];
@@ -73,7 +93,7 @@ module.exports = function attachRanked(io, ctx = {}) {
     const cached = pairs.get(key);
     if (cached && Date.now() - cached.at < CFG.cacheMs) return cached.count;
     try {
-      const rawCount = await withTimeout(() => provider.getPairCount(a, b));
+      const rawCount = await providerCall('getPairCount', a, b);
       if (rawCount === null || rawCount === undefined || rawCount === '') return null;
       const count = Number(rawCount);
       if (!Number.isFinite(count) || count < 0) return null;
@@ -267,14 +287,14 @@ module.exports = function attachRanked(io, ctx = {}) {
       try {
         const ratings = {};
         for (const mode of MODES) {
-          const rawRating = await withTimeout(() => provider.getRating(accountId, mode));
+          const rawRating = await providerCall('getRating', accountId, mode);
           if (rawRating === null || rawRating === undefined || rawRating === '') throw new Error('rating-unavailable');
           const rating = Number(rawRating);
           if (!Number.isFinite(rating)) throw new Error('rating-unavailable');
           ratings[mode] = rating;
         }
-        const name = provider.getName
-          ? await withTimeout(() => provider.getName(accountId)).catch(() => null)
+        const name = hasProviderMethod('getName')
+          ? await providerCall('getName', accountId).catch(() => null)
           : null;
         socket.emit(EV.infoData, { loggedIn: true, name, ratings });
       } catch (_) {
@@ -302,11 +322,11 @@ module.exports = function attachRanked(io, ctx = {}) {
       let rating;
       let name = null;
       try {
-        const rawRating = await withTimeout(() => provider.getRating(accountId, mode));
+        const rawRating = await providerCall('getRating', accountId, mode);
         if (rawRating === null || rawRating === undefined || rawRating === '') return fail('Рейтинг не найден — войди заново.');
         rating = Number(rawRating);
         if (!Number.isFinite(rating)) return fail('Рейтинг не найден — войди заново.');
-        if (provider.getName) name = await withTimeout(() => provider.getName(accountId)).catch(() => null);
+        if (hasProviderMethod('getName')) name = await providerCall('getName', accountId).catch(() => null);
       } catch (_) {
         return fail('Сервис рейтинга временно недоступен. Попробуй чуть позже.');
       }
