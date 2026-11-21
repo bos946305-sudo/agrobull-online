@@ -1,6 +1,4 @@
-/* server-ranked.js — единая рейтинговая очередь для карт и костей.
- * Покер добавляется в очередь после появления server-poker.js и поддержки рейтинга в БД.
- */
+/* server-ranked.js — единая рейтинговая очередь для карт, костей и покера. */
 'use strict';
 
 const crypto = require('crypto');
@@ -20,7 +18,7 @@ module.exports = function attachRanked(io, ctx = {}) {
     base: 100, perSec: 20, max: 500, fillAfter: 30, startIn: 5000,
     pairLimit: 5, providerMs: 1500, cacheMs: 20000, ...(ctx.window || {})
   };
-  // server-accounts currently stores and settles only these two modes.
+  // Keep the queue modes aligned with server-accounts settlement and the client UI.
   const MODES = ctx.modes || ['cards', 'dice', 'poker'];
   const SIZES = [2, 4];
   const LOCKED = [
