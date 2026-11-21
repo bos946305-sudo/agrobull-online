@@ -89,6 +89,8 @@ module.exports = function attachSocial(io,ctx={}) {
     return;
   }
   const store=createStore(pool);
+  // Shared with server-voice.js: mutually blocked players cannot exchange voice signals.
+  io.isBlocked = (a,b) => store.isBlocked(a,b);
   const getAccountId=ctx.getAccountId || (s=>s.data && s.data.accountId);
   const maxPlayers=Number(ctx.maxPlayers)||4;
   const rate=new Map(), invites=new Map();
