@@ -177,11 +177,42 @@ module.exports = function attachRanked(io, ctx = {}) {
     });
     const code = room.code;
     setTimeout(() => {
-      if (rooms.get(code) !== room || room.players.length < 2 || room.game ||
+      if (rooms.get(code) !== room) return;
+
+      // If somebody leaves during the pre-game countdown, don't strand the
+      // remaining player in a ranked room that rejects normal room joins.
+      if (room.players.length < 2) {
+        room.ranked = false;
+        room.rankedMode = null;
+        room.rankedParticipants = [];
+        room.rankedResultRecorded = false;
+        room.players.forEach(player => {
+          player.ready = player.id === room.hostId;
+        });
+        io.to(code).emit(EV.error, {
+          message: 'Соперник покинул матч до начала. Комната снова доступна для обычной игры.'
+        });
+        sendLobby(room);
+        return;
+      }
+
+      if (room.game ||
           (room.dice && room.dice.phase !== 'finished') ||
           (room.poker && room.poker.phase !== 'finished')) return;
       if (!room.players.every(player => player.connected !== false && player.ready)) return;
-      (ctx.startMatch || defaultStart)(room, mode);
+
+      const started = (ctx.startMatch || defaultStart)(room, mode);
+      if (started === false) {
+        // A failed initializer must not leave an unplayable ranked room behind.
+        room.ranked = false;
+        room.rankedMode = null;
+        room.rankedParticipants = [];
+        room.rankedResultRecorded = false;
+        io.to(code).emit(EV.error, {
+          message: 'Не удалось запустить рейтинговый матч. Комната возвращена в обычное лобби.'
+        });
+        sendLobby(room);
+      }
     }, CFG.startIn);
     return room;
   }
