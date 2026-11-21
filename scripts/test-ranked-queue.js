@@ -108,6 +108,17 @@ function setup(pairCount = 0, options = {}) {
     env.io.ranked.close();
   }
   {
+    const env = setup(null);
+    const a = env.socket('socket-a', 'a');
+    const b = env.socket('socket-b', 'b');
+    await a.handlers.rankedQueue({ mode: 'cards', want: 2 });
+    await b.handlers.rankedQueue({ mode: 'cards', want: 2 });
+    await env.io.ranked.tick();
+    assert.strictEqual(env.io.ranked.size(), 2, 'unknown pair count must not be treated as zero');
+    assert.strictEqual(env.rooms.size, 0, 'unknown pair count must never permit a match');
+    env.io.ranked.close();
+  }
+  {
     // The provider may be attached after server-ranked; it is resolved on demand.
     const env = setup(0, { delayedProvider: true });
     const a = env.socket('socket-a', 'a');
