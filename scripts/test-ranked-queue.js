@@ -2,7 +2,7 @@
 const assert = require('assert');
 const attachRanked = require('../server-ranked');
 
-function setup(pairCount = 0) {
+function setup(pairCount = 0, options = {}) {
   const listeners = {};
   const rooms = new Map();
   const io = {
@@ -11,18 +11,21 @@ function setup(pairCount = 0) {
     sockets: { sockets: new Map() }
   };
   const started = [];
-  attachRanked(io, {
+  const provider = {
+    async getRating(id) { return id === 'a' ? 1000 : 1010; },
+    async getPairCount() { return pairCount; },
+    async getName(id) { return id; }
+  };
+  const context = {
     getRoomForSocket: socket => socket.data.roomCode ? rooms.get(socket.data.roomCode) : null,
     rooms,
     sendLobby() {},
-    provider: {
-      async getRating(id) { return id === 'a' ? 1000 : 1010; },
-      async getPairCount() { return pairCount; },
-      async getName(id) { return id; }
-    },
     startMatch(room, mode) { started.push({ room, mode }); },
     window: { startIn: 5, cacheMs: 10 }
-  });
+  };
+  if (!options.delayedProvider) context.provider = provider;
+  attachRanked(io, context);
+  if (options.delayedProvider) io.rankedProvider = provider;
   function socket(id, accountId) {
     const handlers = {};
     const outbound = [];
@@ -55,6 +58,13 @@ function setup(pairCount = 0) {
     assert.strictEqual(room.players[0].accountId, 'a');
     assert.strictEqual(room.players[1].accountId, 'b');
     assert.deepStrictEqual(room.players.map(player => player.rating), [1000, 1010]);
+    // A ranked room cannot be switched to another mode by a manual host event.
+    for (const event of ['startGame', 'diceStart', 'pokerStart']) {
+      let middlewareError = null;
+      a.middleware[0]([event, {}], error => { middlewareError = error; });
+      assert(middlewareError, event + ' must be locked in a ranked room');
+    }
+    assert(a.outbound.some(item => item.event === 'roomError'));
     await new Promise(resolve => setTimeout(resolve, 15));
     assert.strictEqual(env.started.length, 1);
     assert.strictEqual(env.started[0].mode, 'cards');
@@ -97,7 +107,29 @@ function setup(pairCount = 0) {
     assert.strictEqual(env.started[0].mode, 'poker');
     env.io.ranked.close();
   }
-  console.log('RANKED QUEUE TESTS OK: async ratings, pair cap, room creation, cancellation and stale sockets.');
+  {
+    const env = setup(null);
+    const a = env.socket('socket-a', 'a');
+    const b = env.socket('socket-b', 'b');
+    await a.handlers.rankedQueue({ mode: 'cards', want: 2 });
+    await b.handlers.rankedQueue({ mode: 'cards', want: 2 });
+    await env.io.ranked.tick();
+    assert.strictEqual(env.io.ranked.size(), 2, 'unknown pair count must not be treated as zero');
+    assert.strictEqual(env.rooms.size, 0, 'unknown pair count must never permit a match');
+    env.io.ranked.close();
+  }
+  {
+    // The provider may be attached after server-ranked; it is resolved on demand.
+    const env = setup(0, { delayedProvider: true });
+    const a = env.socket('socket-a', 'a');
+    const b = env.socket('socket-b', 'b');
+    await a.handlers.rankedQueue({ mode: 'dice', want: 2 });
+    await b.handlers.rankedQueue({ mode: 'dice', want: 2 });
+    await env.io.ranked.tick();
+    assert.strictEqual(env.rooms.size, 1, 'late-bound provider must allow matchmaking');
+    env.io.ranked.close();
+  }
+  console.log('RANKED QUEUE TESTS OK: async/late-bound provider, pair cap, mode locks, room creation, cancellation and stale sockets.');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
