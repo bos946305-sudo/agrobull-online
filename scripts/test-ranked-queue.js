@@ -5,9 +5,10 @@ const attachRanked = require('../server-ranked');
 function setup(pairCount = 0, options = {}) {
   const listeners = {};
   const rooms = new Map();
+  const broadcasts = [];
   const io = {
     on(event, handler) { listeners[event] = handler; },
-    to() { return { emit() {} }; },
+    to(roomCode) { return { emit(event, data) { broadcasts.push({ roomCode, event, data }); } }; },
     sockets: { sockets: new Map() }
   };
   const started = [];
@@ -40,7 +41,7 @@ function setup(pairCount = 0, options = {}) {
     listeners.connection(s);
     return s;
   }
-  return { io, rooms, started, lobbyUpdates, socket };
+  return { io, rooms, started, lobbyUpdates, broadcasts, socket };
 }
 
 (async () => {
@@ -112,8 +113,10 @@ function setup(pairCount = 0, options = {}) {
     await new Promise(resolve => setTimeout(resolve, 15));
     assert.strictEqual(room.ranked, false, 'orphaned room must return to casual lobby');
     assert.strictEqual(room.rankedParticipants.length, 0, 'ranked participant snapshot must be cleared');
-    assert(env.lobbyUpdates.includes(room), 'updated casual lobby must be broadcast');
-    assert(a.outbound.some(item => item.event === 'rankedError' &&
+    assert(env.lobbyUpdates.filter(item => item === room).length >= 2,
+      'updated casual lobby must be broadcast after room creation');
+    assert(env.broadcasts.some(item => item.roomCode === room.code &&
+      item.event === 'rankedError' &&
       /снова доступна для обычной игры/i.test(item.data.message)),
       'remaining player must receive a clear recovery message');
     env.io.ranked.close();
