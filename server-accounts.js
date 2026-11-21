@@ -120,6 +120,9 @@ module.exports = function attachAccounts(io, ctx = {}) {
       })
     : null;
 
+  // Shared with server-side social features; never exposed to clients.
+  io.pool = pool;
+
   // Internal bot marker: bots receive this secret only from server-bots.js.
   global.__botSecret = global.__botSecret || crypto.randomBytes(32).toString('hex');
   let schemaPromise = null;
