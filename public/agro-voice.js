@@ -305,6 +305,18 @@
     }
   });
   socket.on('voiceSignal', handleSignal);
+  socket.on('voiceError', event => {
+    if (typeof notify === 'function') notify(event && event.message || 'Голосовой чат недоступен.');
+  });
+  socket.on('voiceForceLeave', () => {
+    enabled = false;
+    closeAllConnections();
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    stream = null;
+    muted = false;
+    config = null;
+    render();
+  });
 
   function updateRoster(data) {
     if (data && Array.isArray(data.players)) {
