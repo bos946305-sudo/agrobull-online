@@ -214,6 +214,7 @@ function startRoomGame(room) {
 // Public entry point used by the unified ranked queue (no private Socket.IO listener calls).
 io.startCardsRoom = startRoomGame;
 require('./server-ranked')(io, { getRoomForSocket: roomFor, rooms, sendLobby });
+require('./server-social')(io, { getRoomForSocket: roomFor, rooms, maxPlayers: MAX_PLAYERS });
 
 function resolveCall(room, caller) {
   const game = room.game;
