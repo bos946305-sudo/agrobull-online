@@ -114,6 +114,9 @@ function personalizedState(room, viewerId) {
     ranked: !!room.ranked,
     round: game.round,
     table: game.table,
+    table2: game.table2 || null,
+    event: game.event || null,
+    dir: game.dir === -1 ? -1 : 1,
     pileCount: game.pileCount,
     currentId: game.currentId,
     lastPlay: game.lastPlay ? {
@@ -134,6 +137,7 @@ function personalizedState(room, viewerId) {
       handCount: p.hand.length,
       ability: skillFor(p),
       abilityUsed: !!p.abilityUsed,
+      cursed: !!p.cursed,
       hand: p.id === viewerId ? p.hand : undefined,
       ready: p.ready
     }))
@@ -148,7 +152,8 @@ function nextPlayerWithCards(room, afterId) {
   const n = room.players.length;
   const start = Math.max(0, room.players.findIndex(p => p.id === afterId));
   for (let step = 1; step <= n; step++) {
-    const p = room.players[(start + step) % n];
+    const dir = (room.game && room.game.dir === -1) ? -1 : 1;
+    const p = room.players[(((start + dir * step) % n) + n) % n];
     if (p && p.alive && p.hand.length > 0) return p;
   }
   return null;
@@ -175,12 +180,15 @@ function dealRound(room, afterId = null) {
   const deck = [];
   for (const crop of CROPS) for (let i = 0; i < 6; i++) deck.push({ id: crop.id, icon: crop.icon, name: crop.name });
   deck.push({ id: 'b', icon: '🐂', name: 'Бык' }, { id: 'b', icon: '🐂', name: 'Бык' });
+  if (io.cardFx) io.cardFx.extendDeck(room, deck);
   shuffle(deck);
   for (const p of room.players) p.hand = [];
   for (let i = 0; i < 5; i++) for (const p of alive) p.hand.push(deck.pop());
   const table = CROPS[Math.floor(Math.random() * CROPS.length)];
+  if (room.game) room.game.dir = 1;
   let first = afterId ? nextPlayerWithCards(room, afterId) : alive[0];
   if (!first) first = alive[0];
+  const fxInit = io.cardFx ? io.cardFx.roundInit(room, table) : null;
   const previousGameId = room.game?.gameId;
   room.game = {
     gameId: previousGameId || id(),
@@ -194,14 +202,15 @@ function dealRound(room, afterId = null) {
     rodeo: null,
     begging: null,
     winnerId: null,
-    message: `Раунд ${((room.game?.round || 0) + 1)}. На столе ${table.name}.`
+    message: `Раунд ${((room.game?.round || 0) + 1)}. На столе ${table.name}.`,
+    ...(fxInit || {})
   };
   broadcastState(room);
 }
 function startRoomGame(room) {
   if (!room || rooms.get(room.code) !== room || room.game) return false;
   if (room.players.length < MIN_PLAYERS || !room.players.every(p => p.ready && p.connected)) return false;
-  for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); p.abilityUsed = false; }
+  for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); p.abilityUsed = false; p.cursed = false; }
   // Snapshot accounts once at match start; guest and bot matches stay unranked.
   if (typeof io.prepareRankedRoom === 'function') io.prepareRankedRoom(room, 'cards');
   // A room can run only one mode at a time. Clear a finished dice match before cards start.
@@ -216,6 +225,7 @@ io.startCardsRoom = startRoomGame;
 require('./server-ranked')(io, { getRoomForSocket: roomFor, rooms, sendLobby });
 require('./server-social')(io, { getRoomForSocket: roomFor, rooms, maxPlayers: MAX_PLAYERS });
 require('./server-voice')(io, { getRoomForSocket: roomFor });
+require('./server-specials')(io, { getRoomForSocket: roomFor, rooms, broadcastState, nextPlayerWithCards, playerById });
 
 function resolveCall(room, caller) {
   const game = room.game;
@@ -225,8 +235,8 @@ function resolveCall(room, caller) {
   // A crop card must match the declared table crop. The bull is a wild card.
   const cardResults = last.cards.map(card => ({
     ...card,
-    isWild: card.id === 'b',
-    matchesTable: card.id === game.table.id || card.id === 'b'
+    isWild: card.id === 'b' && !(game.event && game.event.id === 'noBull'),
+    matchesTable: card.id === game.table.id || (card.id === 'b' && !(game.event && game.event.id === 'noBull')) || (!!game.table2 && card.id === game.table2.id)
   }));
   const falseCards = cardResults.filter(card => !card.matchesTable);
   const validCards = cardResults.filter(card => card.matchesTable);
@@ -235,7 +245,8 @@ function resolveCall(room, caller) {
   const loser = playerById(room, isLie ? last.playerId : caller.id);
   if (!loser || !loser.alive || !playedBy) return;
 
-  loser.rides += 1;
+  const fxr = io.cardFx ? io.cardFx.beforeRide(room, loser) : { add: 1 };
+  loser.rides += fxr.add;
   const out = loser.rides >= loser.fallAt;
   game.phase = 'rodeo';
   game.currentId = null;
@@ -264,11 +275,14 @@ function resolveCall(room, caller) {
     startedAt: Date.now(),
     isLie,
     playedById: playedBy.id,
-    falseCardCount: falseCards.length
+    falseCardCount: falseCards.length,
+    added: fxr.add
   };
   game.message = isLie
     ? `БЛЕФ РАСКРЫТ: ${playedBy.name} положил ${falseCards.map(card => card.name).join(', ')} вместо ${game.table.name}. ${caller.name} правильно раскрыл блеф — ${loser.name} на быка!`
     : `ОБВИНЕНИЕ ОШИБОЧНО: карты ${playedBy.name} соответствуют столу (${game.table.name}) или являются быками. ${caller.name} ошибся — на быка!`;
+  if (io.cardFx) io.cardFx.afterCall(room, { loser, caller, playedBy, fxr });
+  broadcastState(room);
   broadcastState(room);
 
   const code = room.code;
@@ -276,13 +290,14 @@ function resolveCall(room, caller) {
   setTimeout(() => {
     const currentRoom = rooms.get(code);
     if (!currentRoom || !currentRoom.game || currentRoom.game.gameId !== gameId || currentRoom.game.phase !== 'rodeo') return;
-    const target = playerById(currentRoom, loser.id);
-    if (target && out && !currentRoom.game.rodeo?.saved) target.alive = false;
+    const rd = currentRoom.game.rodeo || {};
+    const target = playerById(currentRoom, rd.playerId || loser.id);
+    if (target && (rd.out !== undefined ? rd.out : out) && !rd.saved) target.alive = false;
     if (activePlayers(currentRoom).length <= 1) {
       finishGame(currentRoom, activePlayers(currentRoom)[0]?.id || null);
       return;
     }
-    dealRound(currentRoom, loser.id);
+    dealRound(currentRoom, rd.playerId || loser.id);
   }, 5200);
 }
 function removeQuickQueue(socket, notify = false) {
@@ -604,10 +619,12 @@ io.on('connection', socket => {
       return;
     }
     const cards = indexes.sort((a, b) => b - a).map(i => player.hand.splice(i, 1)[0]).reverse();
+    if (io.cardFx) io.cardFx.beforePlay(room, player, cards);
     game.pileCount += cards.length;
     game.lastPlay = { playerId: player.id, cards };
     game.reveal = null;
     game.message = `${player.name} выложил ${cards.length} карт рубашкой вверх.`;
+    if (io.cardFx) io.cardFx.afterPlay(room, player, cards);
     const survivors = activePlayers(room);
     if (player.hand.length === 0 && survivors.length === 2) {
       const automaticCaller = survivors.find(p => p.id !== player.id && p.hand.length > 0);
