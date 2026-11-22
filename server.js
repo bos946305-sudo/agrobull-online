@@ -134,8 +134,9 @@ function personalizedState(room, viewerId) {
       id: p.id, name: p.name, character: p.character, skin: p.skin,
       rating: Number.isFinite(p.rating) ? p.rating : null,
       alive: p.alive, rides: p.rides, fallAt: 6,
-      handCount: p.hand.length,
+      handCount: io.abilities ? io.abilities.shownCount(room, p, viewerId) : p.hand.length,
       ability: skillFor(p),
+      ability2: io.abilities ? io.abilities.info(room, p, viewerId) : null,
       abilityUsed: !!p.abilityUsed,
       cursed: !!p.cursed,
       hand: p.id === viewerId ? p.hand : undefined,
@@ -210,7 +211,7 @@ function dealRound(room, afterId = null) {
 function startRoomGame(room) {
   if (!room || rooms.get(room.code) !== room || room.game) return false;
   if (room.players.length < MIN_PLAYERS || !room.players.every(p => p.ready && p.connected)) return false;
-  for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); p.abilityUsed = false; p.cursed = false; }
+  for (const p of room.players) { p.alive = true; p.rides = 0; p.fallAt = 2 + Math.floor(Math.random() * 4); p.abilityUsed = false; p.cursed = false; p.ab2 = null; p.fake = null; p.jam = null; }
   // Snapshot accounts once at match start; guest and bot matches stay unranked.
   if (typeof io.prepareRankedRoom === 'function') io.prepareRankedRoom(room, 'cards');
   // A room can run only one mode at a time. Clear a finished dice match before cards start.
@@ -226,6 +227,7 @@ require('./server-ranked')(io, { getRoomForSocket: roomFor, rooms, sendLobby });
 require('./server-social')(io, { getRoomForSocket: roomFor, rooms, maxPlayers: MAX_PLAYERS });
 require('./server-voice')(io, { getRoomForSocket: roomFor });
 require('./server-specials')(io, { getRoomForSocket: roomFor, rooms, broadcastState, nextPlayerWithCards, playerById });
+require('./server-abilities')(io, { getRoomForSocket: roomFor, rooms, broadcastState, playerById });
 
 function resolveCall(room, caller) {
   const game = room.game;
