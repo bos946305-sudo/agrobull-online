@@ -243,6 +243,8 @@ function resolveCall(room, caller) {
   const isLie = falseCards.length > 0;
   const playedBy = playerById(room, last.playerId);
   const loser = playerById(room, isLie ? last.playerId : caller.id);
+  const acceptedCrops = game.table2 ? game.table.name + ' или ' + game.table2.name : game.table.name;
+  const bullsAreWild = !(game.event && game.event.id === 'noBull');
   if (!loser || !loser.alive || !playedBy) return;
 
   const fxr = io.cardFx ? io.cardFx.beforeRide(room, loser) : { add: 1 };
@@ -263,8 +265,12 @@ function resolveCall(room, caller) {
     falseCards,
     validCards,
     reason: isLie
-      ? 'Есть карта, которая не совпадает с культурой на столе. Бык считается джокером.'
-      : 'Все карты совпадают с культурой на столе или являются быками.'
+      ? (bullsAreWild
+        ? 'Есть карта, которая не совпадает ни с одной подходящей культурой. Бык считается джокером.'
+        : 'Есть карта, которая не совпадает с подходящей культурой. В событии «Быки не в цене» бык не является джокером.')
+      : (game.table2
+        ? 'Все карты совпадают с одной из двух культур на столе' + (bullsAreWild ? ' или являются быками.' : '. Быки не являются джокерами.')
+        : 'Все карты совпадают с культурой на столе' + (bullsAreWild ? ' или являются быками.' : '. Быки не являются джокерами.'))
   };
   game.rodeo = {
     playerId: loser.id,
@@ -279,8 +285,8 @@ function resolveCall(room, caller) {
     added: fxr.add
   };
   game.message = isLie
-    ? `БЛЕФ РАСКРЫТ: ${playedBy.name} положил ${falseCards.map(card => card.name).join(', ')} вместо ${game.table.name}. ${caller.name} правильно раскрыл блеф — ${loser.name} на быка!`
-    : `ОБВИНЕНИЕ ОШИБОЧНО: карты ${playedBy.name} соответствуют столу (${game.table.name}) или являются быками. ${caller.name} ошибся — на быка!`;
+    ? `БЛЕФ РАСКРЫТ: ${playedBy.name} положил неверные карты (${falseCards.map(card => card.name).join(', ')}) вместо подходящих культур (${acceptedCrops}). ${caller.name} правильно раскрыл блеф — ${loser.name} на быка!`
+    : `ОБВИНЕНИЕ ОШИБОЧНО: карты ${playedBy.name} соответствуют столу (${acceptedCrops})${bullsAreWild ? ' или являются быками' : ''}. ${caller.name} ошибся — на быка!`;
   if (io.cardFx) io.cardFx.afterCall(room, { loser, caller, playedBy, fxr });
   broadcastState(room);
 
