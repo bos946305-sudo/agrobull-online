@@ -5,12 +5,12 @@ module.exports = function attach(io, ctx = {}) {
   const roomFor = ctx.getRoomForSocket, MAXP = ctx.maxPlayers || 4;
   if (typeof roomFor !== 'function') throw new Error('server-modes: передай { getRoomForSocket: roomFor }');
   const SET = new Map();
-  const def = () => ({ maxPlayers: MAXP, turnSec: 30, abilities: true, fallMin: 2, fallMax: 5 });
+  const def = () => ({ maxPlayers: MAXP, turnSec: 30, abilities: true, fallMin: 2, fallMax: 5, mode: 'classic' });
   const clamp = (v, a, b, d) => Number.isFinite(+v) ? Math.max(a, Math.min(b, Math.round(+v))) : d;
   io.settingsOf = code => SET.get(code) || def();
 
   const lobby = r => ({
-    code: r.code, hostId: r.hostId, maxPlayers: (SET.get(r.code) || def()).maxPlayers,
+    code: r.code, hostId: r.hostId, maxPlayers: (SET.get(r.code) || def()).maxPlayers, mode: (SET.get(r.code) || def()).mode,
     players: r.players.map(p => ({ id: p.id, name: p.name, character: p.character, skin: p.skin, ready: p.ready, isHost: p.id === r.hostId, connected: p.connected })),
     canStart: r.players.length >= 2 && r.players.every(p => p.ready && p.connected)
   });
@@ -43,7 +43,9 @@ module.exports = function attach(io, ctx = {}) {
     socket.on('setSettings', (d = {}) => {
       const r = roomFor(socket); if (!r || r.game || (r.dice && r.dice.phase !== 'finished') || socket.data.playerId !== r.hostId) return;
       const lo = clamp(d.fallMin, 1, 5, 2), hi = clamp(d.fallMax, lo, 6, 5);
-      const s = { maxPlayers: clamp(d.maxPlayers, Math.max(2, r.players.length), MAXP, MAXP), turnSec: [15, 30, 60].includes(+d.turnSec) ? +d.turnSec : 30, abilities: d.abilities !== false, fallMin: lo, fallMax: hi };
+      const current = SET.get(r.code) || def();
+      const mode = ['classic', 'double', 'chaos'].includes(d.mode) ? d.mode : current.mode;
+      const s = { maxPlayers: clamp(d.maxPlayers, Math.max(2, r.players.length), MAXP, MAXP), turnSec: [15, 30, 60].includes(+d.turnSec) ? +d.turnSec : 30, abilities: d.abilities !== false, fallMin: lo, fallMax: hi, mode };
       SET.set(r.code, s); io.to(r.code).emit('settings', s); io.to(r.code).emit('lobby', lobby(r));
     });
 
