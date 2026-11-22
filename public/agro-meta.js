@@ -19,6 +19,7 @@
   function checkAchievements(){achievements.forEach(a=>{if(!M.ach.includes(a.id)&&a.test()){M.ach.push(a.id);M.coins+=50;toast('🏆 '+a.title+' · +50 🪙');}});}
   let lastGame='',lastReveal='',lastRodeo='',lastCallAt=0,hostId=null,settingsRequested=false;
   const call=$('#callBtn');if(call)call.addEventListener('click',()=>{lastCallAt=Date.now();},true);
+  socket.on('joined',()=>{settingsRequested=false;});
   socket.on('lobby',l=>{
     hostId=l.hostId;
     const me=(l.players||[]).find(p=>p.id===selfId);
