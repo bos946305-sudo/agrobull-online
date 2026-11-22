@@ -30,7 +30,7 @@
   });
   socket.on('settings',s=>{
     if(!s)return;
-    setting('#metaPlayers',s.maxPlayers);setting('#metaTurn',s.turnSec);setting('#metaAbilities',s.abilities?'1':'0');setting('#metaFall',s.fallMin+'-'+s.fallMax);
+    setting('#metaPlayers',s.maxPlayers);setting('#metaTurn',s.turnSec);setting('#metaAbilities',s.abilities?'1':'0');setting('#metaFall',s.fallMin+'-'+s.fallMax);setting('#metaMode',s.mode||'classic');
     document.body.classList.toggle('noabil',!s.abilities);
   });
   function setting(sel,v){const el=settingsBox.querySelector(sel);if(el)el.value=String(v);}
@@ -65,11 +65,11 @@
   const top=$('.topright');if(top)top.prepend(profileBtn);
 
   const settingsBox=document.createElement('div');settingsBox.className='row';settingsBox.style.cssText='display:none;flex-wrap:wrap;margin-top:10px';
-  settingsBox.innerHTML='<select id="metaPlayers" class="secondary"><option value="4">4 игрока</option><option value="3">3 игрока</option><option value="2">2 игрока</option></select><select id="metaTurn" class="secondary"><option value="15">Ход 15 с</option><option value="30">Ход 30 с</option><option value="60">Ход 60 с</option></select><select id="metaAbilities" class="secondary"><option value="1">Умения: вкл</option><option value="0">Умения: выкл</option></select><select id="metaFall" class="secondary"><option value="2-5">Бык: 2–5</option><option value="1-3">Бык: 1–3</option><option value="4-6">Бык: 4–6</option></select>';
+  settingsBox.innerHTML='<select id="metaPlayers" class="secondary"><option value="4">4 игрока</option><option value="3">3 игрока</option><option value="2">2 игрока</option></select><select id="metaTurn" class="secondary"><option value="15">Ход 15 с</option><option value="30">Ход 30 с</option><option value="60">Ход 60 с</option></select><select id="metaAbilities" class="secondary"><option value="1">Умения: вкл</option><option value="0">Умения: выкл</option></select><select id="metaFall" class="secondary"><option value="2-5">Бык: 2–5</option><option value="1-3">Бык: 1–3</option><option value="4-6">Бык: 4–6</option></select><select id="metaMode" class="secondary" title="Режим карточной партии"><option value="classic">Классика</option><option value="double">Двойной бык</option><option value="chaos">Хаос</option></select>';
   const roomPlayers=$('#roomPlayers');if(roomPlayers)roomPlayers.after(settingsBox);
   settingsBox.addEventListener('change',()=>{
     const [min,max]=settingsBox.querySelector('#metaFall').value.split('-').map(Number);
-    socket.emit('setSettings',{maxPlayers:+settingValue('#metaPlayers'),turnSec:+settingValue('#metaTurn'),abilities:settingValue('#metaAbilities')==='1',fallMin:min,fallMax:max});
+    socket.emit('setSettings',{maxPlayers:+settingValue('#metaPlayers'),turnSec:+settingValue('#metaTurn'),abilities:settingValue('#metaAbilities')==='1',fallMin:min,fallMax:max,mode:settingValue('#metaMode')});
   });
   function settingValue(sel){return settingsBox.querySelector(sel)?.value||'';}
   function kickPlayers(l,host){
