@@ -304,6 +304,8 @@ module.exports = function attachAbilities(io, ctx = {}) {
             console.error('[abilities] Не удалось загрузить опыт:', error.message);
           }
         }
+        // Refresh the ability buttons after account levels are loaded.
+        broadcastState(room);
       }
 
       if (game.phase === 'finished' && !room._ab.done) {
