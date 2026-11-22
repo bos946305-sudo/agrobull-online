@@ -283,7 +283,6 @@ function resolveCall(room, caller) {
     : `ОБВИНЕНИЕ ОШИБОЧНО: карты ${playedBy.name} соответствуют столу (${game.table.name}) или являются быками. ${caller.name} ошибся — на быка!`;
   if (io.cardFx) io.cardFx.afterCall(room, { loser, caller, playedBy, fxr });
   broadcastState(room);
-  broadcastState(room);
 
   const code = room.code;
   const gameId = game.gameId;
