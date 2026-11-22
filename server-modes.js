@@ -23,7 +23,7 @@ module.exports = function attach(io, ctx = {}) {
         const size = (io.sockets.adapter.rooms.get(code) || new Set()).size;
         if (s && size >= s.maxPlayers) { socket.emit('roomError', { message: `В комнате максимум ${s.maxPlayers} игрока.` }); return next(new Error('full')); }
       }
-      if (ev === 'useAbility') {
+      if (ev === 'useAbility' || ev === 'ability2') {
         const r = roomFor(socket), s = r && SET.get(r.code);
         if (s && s.abilities === false) { socket.emit('roomError', { message: 'В этой комнате умения отключены.' }); return next(new Error('abilities-off')); }
       }
