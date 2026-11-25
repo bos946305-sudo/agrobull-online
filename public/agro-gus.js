@@ -46,7 +46,7 @@
     const info=json.textures&&json.textures[index];
     const img=info&&json.images&&json.images[info.source];
     const bv=img&&img.bufferView!=null&&json.bufferViews&&json.bufferViews[img.bufferView];
-    if(!info||!img||!bv||!img.mimeType)return Promise.reject(new Error('В GLB Гуса не найдена встроенная PNG-текстура'));
+    if(!info||!img||!bv||!img.mimeType)return Promise.reject(new Error('В GLB Гуса не найдена встроенная текстура'));
     const begin=bv.byteOffset||0,end=begin+bv.byteLength;
     if(begin<0||end>binary.byteLength)return Promise.reject(new Error('Повреждён блок текстуры Гуса'));
     const url=URL.createObjectURL(new Blob([binary.slice(begin,end)],{type:img.mimeType}));
@@ -206,7 +206,7 @@
       template=normalize(await buildScene(parsed.json,parsed.binary));
       api.ready=true;api.error=null;
       if(typeof window.__agroRefreshActors==='function')window.__agroRefreshActors();
-      console.info('AGROBULL: Gustavo Fring GLB and embedded PNG texture loaded');
+      console.info('AGROBULL: Gustavo Fring GLB with optimized embedded textures loaded');
     }catch(error){
       failed=true;api.error=error&&error.message?error.message:String(error);
       console.error('AGROBULL: Gus GLB failed; procedural fallback remains active:',error);
