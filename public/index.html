@@ -241,7 +241,7 @@ function renderGameState(state){
  skillRoot.style.display=skillRoot.children.length?'flex':'none';
  if(state.phase==='finished'){$('#hint').textContent='Матч завершён'}
 }
-setInterval(()=>{const b=gameState&&gameState.begging;if(!b)return;const seconds=Math.max(0,Math.ceil((Number(b.expiresAt)-Date.now())/1000));const node=$('#saulProtectionTimer');if(node){node.textContent=node.textContent.replace(/\\d+ сек/,seconds+' сек');}},250);
+setInterval(()=>{const b=gameState&&gameState.begging;if(!b||Number(b.expiresAt)<=Date.now())return;const seconds=Math.max(0,Math.ceil((Number(b.expiresAt)-Date.now())/1000));const node=$('#saulProtectionTimer');if(node){node.textContent=node.textContent.replace(/\d+ сек/,seconds+' сек');}},1000);
 $('#playBtn').type='button';
 $('#playBtn').onclick=()=>{
  const button=$('#playBtn'),state=gameState,me=state?.players?.find(p=>p.id===selfId),hand=me?.hand||[];
