@@ -65,8 +65,9 @@ module.exports = function attachSpecials(io, ctx = {}) {
     },
 
     roundInit(room, table) {
-      const result = { dir: 1, table2: null, event: null };
-      if (modeOf(room) === 'chaos' && Math.random() < 2 / 3) {
+      const mode = modeOf(room);
+      const result = { dir: 1, table2: null, event: null, mode };
+      if (mode === 'chaos' && Math.random() < 2 / 3) {
         const event = pick(EVENTS);
         result.event = { ...event };
         if (event.id === 'wild2') {
@@ -123,12 +124,7 @@ module.exports = function attachSpecials(io, ctx = {}) {
       const game = room.game;
       const result = { add: 1, shielded: false, cursed: false, doubled: false };
 
-      if (take(loser.hand, 'shield')) {
-        result.add = 0;
-        result.shielded = true;
-        return result;
-      }
-
+      // Apply and consume one-shot effects before checking the automatic Shield.
       if (loser.cursed) {
         result.add += 1;
         result.cursed = true;
@@ -138,6 +134,14 @@ module.exports = function attachSpecials(io, ctx = {}) {
       if (game && game.event && game.event.id === 'doubleRide') {
         result.add += 1;
         result.doubled = true;
+      }
+
+      // Shield cancels the whole next penalty, but does not preserve a consumed Curse.
+      if (take(loser.hand, 'shield')) {
+        result.add = 0;
+        result.shielded = true;
+        result.cursed = false;
+        result.doubled = false;
       }
       return result;
     },
@@ -181,7 +185,9 @@ module.exports = function attachSpecials(io, ctx = {}) {
           rodeo.callerId !== player.id || rodeo.playerId !== player.id || rodeo.revenged) {
         return error('Реванш доступен, только если твоя проверка оказалась ошибочной.');
       }
-      if (Date.now() - rodeo.startedAt > REVENGE_WINDOW) {
+      if (!Number.isFinite(Number(rodeo.startedAt)) ||
+          Date.now() - Number(rodeo.startedAt) > REVENGE_WINDOW ||
+          Date.now() < Number(rodeo.startedAt)) {
         return error('Время для реванша вышло (2,5 секунды).');
       }
       if (!(rodeo.added > 0)) return error('Штрафа нет — реванш не нужен.');
