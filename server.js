@@ -624,6 +624,10 @@ io.on('connection', socket => {
       reply(false, 'Сейчас ход другого игрока.');
       return;
     }
+    if (isBeggingDecisionPending(game)) {
+      reply(false, 'Подожди: Сол решает, умолять ли о защите.');
+      return;
+    }
     const indexes = Array.isArray(data.indexes) ? [...new Set(data.indexes.map(Number))] : [];
     if (indexes.length < 1 || indexes.length > 3 || indexes.some(i => !Number.isInteger(i) || i < 0 || i >= player.hand.length)) {
       reply(false, 'Выбери от 1 до 3 карт.');
