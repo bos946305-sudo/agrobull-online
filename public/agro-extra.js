@@ -14,11 +14,12 @@
   const $ = selector => document.querySelector(selector);
   const SETTINGS_KEY = 'agro_settings_v1';
   const STATS_KEY = 'agro_stats_v1';
-  const mobileProfile = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || (Number(navigator.hardwareConcurrency)||4)<=6 || (Number(navigator.deviceMemory)||4)<=6 || Math.min(window.innerWidth||0,window.innerHeight||0)<820;
+  const cores=Number(navigator.hardwareConcurrency)||8,memory=Number(navigator.deviceMemory)||8;
+  const mobileProfile=!!(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches)||(cores<=4&&memory<=4)||Math.min(window.innerWidth||0,window.innerHeight||0)<720;
 
   let S = {
     q: mobileProfile ? 'medium' : 'high', fps: mobileProfile ? 30 : 0, fov: 72, sens: 100, ui: 100,
-    tod: 'auto', rain: !mobileProfile, battery: false,
+    tod: 'auto', rain: false, battery: false,
     hl: false, hn: false, hv: false, ht: false, hb: false
   };
   let ST = { g: 0, w: 0, l: 0, st: 0, best: 0, cr: 0, ct: 0, bc: 0, lastGameId: '', lastRevealKey: '' };
@@ -27,7 +28,8 @@
     S = Object.assign(S, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'));
     ST = Object.assign(ST, JSON.parse(localStorage.getItem(STATS_KEY) || '{}'));
   } catch (_) {}
-  if (mobileProfile) { S.q='medium'; S.fps=30; S.rain=false; }
+  S.rain=false;
+  if (mobileProfile) { S.q='medium'; S.fps=30; }
 
   if (!['low','medium','high','ultra'].includes(S.q)) S.q = mobileProfile ? 'medium' : 'high';
   if (!['auto','eve','night','dawn'].includes(S.tod)) S.tod = 'auto';
@@ -48,8 +50,8 @@
   const style = document.createElement('style');
   style.textContent =
     '.overlay{background:radial-gradient(circle at 18% 18%,rgba(255,61,129,.26),transparent 46%),radial-gradient(circle at 84% 26%,rgba(25,195,214,.26),transparent 46%),radial-gradient(circle at 50% 96%,rgba(255,176,46,.24),transparent 52%),rgba(5,3,6,.76)!important}' +
-    '#grade{position:fixed;inset:0;z-index:2;pointer-events:none;mix-blend-mode:soft-light;background:linear-gradient(135deg,rgba(255,64,129,.27),rgba(0,190,210,.22) 55%,rgba(255,170,40,.25));animation:agroHue 45s linear infinite}' +
-    '@keyframes agroHue{to{filter:hue-rotate(360deg)}}' +
+    '#grade{display:none!important}' +
+    
     '#bottom,#leftpanel,#centerinfo,#topbar{zoom:var(--ui,1)}' +
     '.hl #leftpanel{display:none!important}.hn #lastCards{display:none!important}.hv #vignette,.hv #filmgrain,.hv #grade{display:none!important}.ht #topbar{display:none!important}.hb #bottom{display:none!important}' +
     '#setO{z-index:60}#setO .row2{display:flex;align-items:center;gap:10px;margin:9px 0;font-size:12px;flex-wrap:wrap}#setO .row2>label:first-child{min-width:128px;color:#cdbb9e}' +
@@ -171,7 +173,7 @@
 
   function applySettings() {
     const profile = qualityProfiles[S.q] || qualityProfiles.high;
-    const pixelCap = S.battery ? .82 : (mobileProfile ? .95 : profile.pixel);
+    const pixelCap = S.battery ? .82 : (mobileProfile ? 1.08 : profile.pixel);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelCap));
     const shadowsAllowed = !mobileProfile && !S.battery && profile.shadows;
     if (renderer.shadowMap.enabled !== shadowsAllowed) {
