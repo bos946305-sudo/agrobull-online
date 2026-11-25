@@ -282,30 +282,31 @@ $('#resultBack').onclick=()=>{socket.emit('leaveRoom');room=null;lobby=null;game
 // ---------------------------------------------------------------------------
 // Procedural Three.js saloon, character models and a detailed copper rodeo bull
 // ---------------------------------------------------------------------------
-let renderer,scene,camera,clock,worldReady=false,lowPowerMode=false,cardStack=null,cardBackMaterial=null,atmosphereLights=[],lastAnimationFrameAt=0;let orbitYaw=0,orbitPitch=-.04,orbitDistance=18,dragPointer=null,lastPointerX=0,lastPointerY=0,peekMotion=null,peekCardRig=null;
+let renderer,scene,camera,clock,worldReady=false,lowPowerMode=false,cardStack=null,cardBackMaterial=null,atmosphereLights=[],lastAnimationFrameAt=0;
+function detectLowPowerMode(){const coarse=!!(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches);const cores=Number(navigator.hardwareConcurrency)||8;const memory=Number(navigator.deviceMemory)||8;return coarse||Math.min(innerWidth,innerHeight)<720||(cores<=4&&memory<=4);}let orbitYaw=0,orbitPitch=-.04,orbitDistance=18,dragPointer=null,lastPointerX=0,lastPointerY=0,peekMotion=null,peekCardRig=null;
 const actorModels=new Map();window.__agroActorModels=actorModels;let bullRig=null,dust=null,rodeomotion=null;
 const v3=(x,y,z)=>new THREE.Vector3(x,y,z);
 const mat=(color,roughness=.65,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
 function mesh(parent,geo,material,pos=[0,0,0],scale=null){const m=new THREE.Mesh(geo,material);m.position.set(...pos);if(scale)m.scale.set(...scale);m.castShadow=!lowPowerMode;m.receiveShadow=!lowPowerMode;parent.add(m);return m}
-function sphere(parent,material,pos,scale,detail=24){const d=lowPowerMode?Math.min(detail,14):detail;return mesh(parent,new THREE.SphereGeometry(1,d,Math.max(8,d>>1)),material,pos,scale)}
-function rod(parent,a,b,radius,material,r2=radius){const A=v3(...a),B=v3(...b),d=B.clone().sub(A),m=mesh(parent,new THREE.CylinderGeometry(r2,radius,d.length(),lowPowerMode?7:12),material,[0,0,0]);m.position.copy(A.clone().add(B).multiplyScalar(.5));m.quaternion.setFromUnitVectors(v3(0,1,0),d.normalize());return m}
-function tube(parent,points,radius,material,segments=24){const curve=new THREE.CatmullRomCurve3(points.map(p=>v3(...p)));return mesh(parent,new THREE.TubeGeometry(curve,lowPowerMode?Math.max(8,Math.ceil(segments*.6)):segments,radius,lowPowerMode?5:8,false),material)}
+function sphere(parent,material,pos,scale,detail=24){const d=lowPowerMode?Math.min(detail,18):detail;return mesh(parent,new THREE.SphereGeometry(1,d,Math.max(8,d>>1)),material,pos,scale)}
+function rod(parent,a,b,radius,material,r2=radius){const A=v3(...a),B=v3(...b),d=B.clone().sub(A),m=mesh(parent,new THREE.CylinderGeometry(r2,radius,d.length(),lowPowerMode?10:12),material,[0,0,0]);m.position.copy(A.clone().add(B).multiplyScalar(.5));m.quaternion.setFromUnitVectors(v3(0,1,0),d.normalize());return m}
+function tube(parent,points,radius,material,segments=24){const curve=new THREE.CatmullRomCurve3(points.map(p=>v3(...p)));return mesh(parent,new THREE.TubeGeometry(curve,lowPowerMode?Math.max(8,Math.ceil(segments*.6)):segments,radius,lowPowerMode?7:8,false),material)}
 function makeWoodTexture(){
- const w=lowPowerMode?512:1024,h=lowPowerMode?256:512,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
+ const w=lowPowerMode?768:1024,h=lowPowerMode?384:512,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');
  const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#795235');g.addColorStop(.28,'#5e3d27');g.addColorStop(.65,'#70482b');g.addColorStop(1,'#3e281d');x.fillStyle=g;x.fillRect(0,0,w,h);
- for(let i=0;i<(lowPowerMode?220:620);i++){const y=Math.random()*h;x.strokeStyle='rgba('+(i%3===0?'25,13,7':'224,169,106')+','+(.018+Math.random()*.09)+')';x.lineWidth=.4+Math.random()*2.8;x.beginPath();x.moveTo(0,y);x.bezierCurveTo(w*.2,y+Math.random()*18-9,w*.66,y+Math.random()*26-13,w,y+Math.random()*18-9);x.stroke()}
+ for(let i=0;i<(lowPowerMode?320:620);i++){const y=Math.random()*h;x.strokeStyle='rgba('+(i%3===0?'25,13,7':'224,169,106')+','+(.018+Math.random()*.09)+')';x.lineWidth=.4+Math.random()*2.8;x.beginPath();x.moveTo(0,y);x.bezierCurveTo(w*.2,y+Math.random()*18-9,w*.66,y+Math.random()*26-13,w,y+Math.random()*18-9);x.stroke()}
  for(let i=0;i<(lowPowerMode?12:34);i++){const px=Math.random()*w,py=Math.random()*h;x.strokeStyle='rgba(27,15,8,.22)';x.lineWidth=2;x.beginPath();x.ellipse(px,py,12+Math.random()*34,3+Math.random()*8,Math.random()*.2,0,Math.PI*2);x.stroke();x.strokeStyle='rgba(210,160,102,.11)';x.lineWidth=1;x.beginPath();x.ellipse(px,py,7+Math.random()*18,2+Math.random()*4,0,0,Math.PI*2);x.stroke()}
  for(let i=0;i<(lowPowerMode?360:1800);i++){const a=Math.random()*.055;x.fillStyle='rgba('+(Math.random()>.5?'255,218,171':'12,7,4')+','+a+')';x.fillRect(Math.random()*w,Math.random()*h,1+Math.random()*2,1)}
  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,1);t.anisotropy=Math.min(lowPowerMode?2:8,renderer.capabilities.getMaxAnisotropy());return t
 }
 function makeWoodBumpTexture(){
- const w=lowPowerMode?256:512,h=lowPowerMode?128:256,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='rgb(126,126,126)';x.fillRect(0,0,w,h);
- for(let i=0;i<(lowPowerMode?100:360);i++){const y=Math.random()*h;x.strokeStyle='rgba('+(Math.random()>.5?'255,255,255':'0,0,0')+','+(.08+Math.random()*.24)+')';x.lineWidth=.5+Math.random()*2;x.beginPath();x.moveTo(0,y);x.bezierCurveTo(w*.23,y+Math.random()*10-5,w*.72,y+Math.random()*10-5,w,y);x.stroke()}
+ const w=lowPowerMode?384:512,h=lowPowerMode?192:256,c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='rgb(126,126,126)';x.fillRect(0,0,w,h);
+ for(let i=0;i<(lowPowerMode?160:360);i++){const y=Math.random()*h;x.strokeStyle='rgba('+(Math.random()>.5?'255,255,255':'0,0,0')+','+(.08+Math.random()*.24)+')';x.lineWidth=.5+Math.random()*2;x.beginPath();x.moveTo(0,y);x.bezierCurveTo(w*.23,y+Math.random()*10-5,w*.72,y+Math.random()*10-5,w,y);x.stroke()}
  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,1);return t
 }
 function makeFeltTexture(){
- const size=lowPowerMode?256:512,c=document.createElement('canvas');c.width=size;c.height=size;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,size,size);g.addColorStop(0,'#245443');g.addColorStop(.55,'#163c31');g.addColorStop(1,'#102d26');x.fillStyle=g;x.fillRect(0,0,size,size);
- for(let i=0;i<(lowPowerMode?1100:5200);i++){const a=.025+Math.random()*.085;x.fillStyle='rgba('+(Math.random()>.5?'171,225,184':'2,18,14')+','+a+')';x.fillRect(Math.random()*size,Math.random()*size,1+Math.random()*2,1)}
+ const size=lowPowerMode?384:512,c=document.createElement('canvas');c.width=size;c.height=size;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,size,size);g.addColorStop(0,'#245443');g.addColorStop(.55,'#163c31');g.addColorStop(1,'#102d26');x.fillStyle=g;x.fillRect(0,0,size,size);
+ for(let i=0;i<(lowPowerMode?2200:5200);i++){const a=.025+Math.random()*.085;x.fillStyle='rgba('+(Math.random()>.5?'171,225,184':'2,18,14')+','+a+')';x.fillRect(Math.random()*size,Math.random()*size,1+Math.random()*2,1)}
  for(let i=0;i<(lowPowerMode?100:420);i++){const y=Math.random()*size;x.strokeStyle='rgba(190,226,190,.035)';x.lineWidth=1;x.beginPath();x.moveTo(0,y);x.lineTo(size,y+Math.random()*3);x.stroke()}
  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=Math.min(lowPowerMode?2:8,renderer.capabilities.getMaxAnisotropy());return t
 }
@@ -313,7 +314,7 @@ function makeLeatherTexture(){const c=document.createElement('canvas');c.width=c
 function createRoom(){
  scene=new THREE.Scene();scene.background=new THREE.Color(0x4b3528);scene.fog=new THREE.FogExp2(0x4b3528,.004);
  camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,.08,90);camera.position.set(0,1.68,3.02);camera.lookAt(0,1.45,-5);scene.add(camera);
- const coarse=!!(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches);lowPowerMode=coarse||(Number(navigator.hardwareConcurrency)||4)<=6||(Number(navigator.deviceMemory)||4)<=6||Math.min(innerWidth,innerHeight)<820;window.__agroLowPowerDevice=lowPowerMode;document.documentElement.classList.toggle('agro-mobile-lite',lowPowerMode);if(lowPowerMode){const mobileStyle=document.createElement('style');mobileStyle.textContent='html.agro-mobile-lite .overlay,html.agro-mobile-lite .glass,html.agro-mobile-lite .playerTag,html.agro-mobile-lite #lastCards{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}html.agro-mobile-lite #filmgrain,html.agro-mobile-lite #grade{display:none!important}html.agro-mobile-lite .glow{filter:none!important;box-shadow:none!important}';document.head.appendChild(mobileStyle)}const lowPower=lowPowerMode;renderer=new THREE.WebGLRenderer({canvas:$('#scene'),antialias:!lowPower,alpha:false,powerPreference:'high-performance',stencil:false,preserveDrawingBuffer:false});window.__agroRenderer=renderer;window.__agroNativeRender=renderer.render.bind(renderer);window.__agroLastGoodRender=0;window.__agroForceNativeRender=false;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPower?1:1.55));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=!lowPower;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;renderer.setClearColor(0x4b3528,1);if('outputEncoding'in renderer)renderer.outputEncoding=THREE.sRGBEncoding;
+ lowPowerMode=detectLowPowerMode();window.__agroLowPowerDevice=lowPowerMode;document.documentElement.classList.toggle('agro-mobile-lite',lowPowerMode);if(lowPowerMode){const mobileStyle=document.createElement('style');mobileStyle.textContent='html.agro-mobile-lite .overlay,html.agro-mobile-lite .glass,html.agro-mobile-lite .playerTag,html.agro-mobile-lite #lastCards{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}html.agro-mobile-lite #filmgrain,html.agro-mobile-lite #grade{display:none!important}html.agro-mobile-lite .glow{filter:none!important;box-shadow:none!important}';document.head.appendChild(mobileStyle)}const lowPower=lowPowerMode;renderer=new THREE.WebGLRenderer({canvas:$('#scene'),antialias:!lowPower||((Number(navigator.hardwareConcurrency)||4)>=6&&(Number(navigator.deviceMemory)||4)>=4),alpha:false,powerPreference:'high-performance',stencil:false,preserveDrawingBuffer:false});window.__agroRenderer=renderer;window.__agroNativeRender=renderer.render.bind(renderer);window.__agroLastGoodRender=0;window.__agroForceNativeRender=false;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPower?1.05:1.65));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=!lowPower;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;renderer.setClearColor(0x4b3528,1);if('outputEncoding'in renderer)renderer.outputEncoding=THREE.sRGBEncoding;
  // A compact procedural reflection probe gives the copper body readable highlights without downloading a large HDR map.
  try{const envScene=new THREE.Scene();envScene.background=new THREE.Color(0x20150f);const addGlow=(color,pos,scale)=>{const q=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),new THREE.MeshBasicMaterial({color}));q.position.set(...pos);q.scale.set(...scale);envScene.add(q)};addGlow(0xffc080,[0,4,2],[4,.3,.3]);addGlow(0x6c8ca8,[-5,2,-3],[2,3,.2]);addGlow(0xff8f45,[4,2,-4],[2,3,.25]);if(!lowPower){const pmrem=new THREE.PMREMGenerator(renderer);scene.environment=pmrem.fromScene(envScene,.04).texture;pmrem.dispose()}}catch(e){}
  clock=new THREE.Clock();
@@ -364,7 +365,7 @@ function makeSaloonAtmosphere(wood,brass){
    const y=row===0?1.62:2.52,z=-11.12;
    mesh(scene,new THREE.BoxGeometry(10.9,.12,.48),darkWood,[0,y-.2,z]);
    mesh(scene,new THREE.BoxGeometry(10.9,.035,.48),gold,[0,y-.125,z]);
-   for(let i=0;i<(lowPowerMode?6:13);i++){
+   for(let i=0;i<(lowPowerMode?8:13);i++){
      const x=-4.9+i*.81,col=[0x6d8a4b,0x8b4930,0x334d62,0xb18a42,0x4a715c][i%5],bmat=mat(col,.2,.26);
      const body=mesh(scene,new THREE.CylinderGeometry(.085,.105,.34,18),bmat,[x,y,z+.04]);
      body.rotation.z=(i%3-1)*.025;
@@ -397,7 +398,7 @@ function makeSaloonAtmosphere(wood,brass){
    mesh(scene,new THREE.BoxGeometry(27.8,.035,.04),beamTrim,[0,7.43,z+.18]);
  }
  // Weathered barrels and iron hoops around the perimeter.
- for(const side of [-1,1])for(let i=0;i<(lowPowerMode?1:3);i++){
+ for(const side of [-1,1])for(let i=0;i<(lowPowerMode?2:3);i++){
    const x=side*(10.1+(i%2)*.45),z=-6.2+i*4.25;
    const barrel=mesh(scene,new THREE.CylinderGeometry(.48,.55,1.12,24,2),agedWood,[x,.57,z]);
    mesh(scene,new THREE.CylinderGeometry(.49,.49,.035,24),darkWood,[x,1.14,z]);
@@ -584,7 +585,7 @@ function animate3d(){requestAnimationFrame(animate3d);if(!worldReady||document.h
   panel.textContent='ОШИБКА 3D-ОТРИСОВКИ: '+(renderError&&renderError.message?renderError.message:String(renderError));
  }
 }
-function resize3d(){if(!renderer||!camera)return;const coarse=!!(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches);lowPowerMode=coarse||(Number(navigator.hardwareConcurrency)||4)<=6||(Number(navigator.deviceMemory)||4)<=6||Math.min(innerWidth,innerHeight)<820;window.__agroLowPowerDevice=lowPowerMode;document.documentElement.classList.toggle('agro-mobile-lite',lowPowerMode);renderer.shadowMap.enabled=!lowPowerMode;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPowerMode?1:1.55));renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.fov=innerWidth/innerHeight<1.3?72:68;camera.updateProjectionMatrix()}
+function resize3d(){if(!renderer||!camera)return;lowPowerMode=detectLowPowerMode();window.__agroLowPowerDevice=lowPowerMode;document.documentElement.classList.toggle('agro-mobile-lite',lowPowerMode);renderer.shadowMap.enabled=!lowPowerMode;renderer.setPixelRatio(Math.min(devicePixelRatio||1,lowPowerMode?1.05:1.65));renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.fov=innerWidth/innerHeight<1.3?72:68;camera.updateProjectionMatrix()}
 function show3dInitError(error){console.error('AGROBULL: не удалось запустить полноценную 3D-сцену',error);const panel=document.createElement('div');panel.id='agro3dInitError';panel.style.cssText='position:fixed;z-index:1000;left:12px;right:12px;top:12px;padding:12px 16px;border:1px solid #b87342;border-radius:10px;background:rgba(20,10,6,.94);color:#ffe1bd;font:12px/1.5 monospace;white-space:pre-wrap';panel.textContent='Ошибка запуска 3D: '+(error&&error.message?error.message:String(error));document.body.appendChild(panel);const status=$('#connectionStatus');if(status)status.textContent='Ошибка запуска 3D. Подробности показаны сверху.'}
 if(typeof THREE==='undefined'){show3dInitError(new Error('Three.js не загрузился из /three.min.js'))}else{try{createRoom()}catch(error){show3dInitError(error)}}
 // React to new room/game snapshots and drive the 3D cast.
