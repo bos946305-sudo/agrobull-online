@@ -17,16 +17,19 @@ const NOISE = { easy: 0.70, normal: 0.30, hard: 0.12 };
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 function binomialTail(n, p, k) {
-  n = Math.max(0, Math.floor(n));
-  k = Math.ceil(k);
-  p = Math.max(0, Math.min(1, p));
+  n = Math.max(0, Math.floor(Number(n) || 0));
+  k = Math.ceil(Number(k) || 0);
+  p = Math.max(0, Math.min(1, Number(p) || 0));
   if (k <= 0) return 1;
-  if (k > n) return 0;
+  if (k > n || p === 0) return 0;
+  if (p === 1) return 1;
+
+  // Recurrence avoids recalculating combinations in a nested loop.
+  let term = Math.pow(1 - p, n);
   let sum = 0;
-  for (let x = k; x <= n; x++) {
-    let combinations = 1;
-    for (let i = 1; i <= x; i++) combinations *= (n - i + 1) / i;
-    sum += combinations * (p ** x) * ((1 - p) ** (n - x));
+  for (let x = 0; x <= n; x++) {
+    if (x >= k) sum += term;
+    if (x < n) term *= ((n - x) / (x + 1)) * (p / (1 - p));
   }
   return Math.max(0, Math.min(1, sum));
 }
@@ -67,13 +70,20 @@ module.exports = function attachBots(io, ctx = {}) {
     let actionTimer = null;
     let diceActionTimer = null;
     let pokerActionTimer = null;
+    let beggingTimer = null;
     let latestPokerState = null;
     let pokerTurnKey = '';
     let latestDiceState = null;
     let diceTurnKey = '';
     let finishTimer = null;
+    let maxLifetime = null;
     let pendingReleased = false;
     let closed = false;
+    let abilitiesEnabled = true;
+    let beggingDecisionKey = '';
+    let revengeKey = '';
+    let secondaryAbilityKey = '';
+    let peekInfo = null;
     const memory = new Map();
     const noise = NOISE[difficulty] ?? NOISE.normal;
 
@@ -88,9 +98,23 @@ module.exports = function attachBots(io, ctx = {}) {
       clearTimeout(actionTimer);
       clearTimeout(diceActionTimer);
       clearTimeout(pokerActionTimer);
+      clearTimeout(beggingTimer);
       clearTimeout(finishTimer);
+      clearTimeout(maxLifetime);
       releasePending();
       client.disconnect();
+    }
+
+    function validCard(state, card) {
+      if (!card || !state || !state.table) return false;
+      if (card.id === state.table.id) return true;
+      if (state.table2 && card.id === state.table2.id) return true;
+      return card.id === 'b' && (!state.event || state.event.id !== 'noBull');
+    }
+
+    function peekKey(state) {
+      return state ? [state.gameId, state.round, state.pileCount,
+        state.lastPlay && state.lastPlay.playerId].join('|') : '';
     }
 
     function remember(state) {
@@ -101,8 +125,13 @@ module.exports = function attachBots(io, ctx = {}) {
       rememberedKey = key;
       const rec = memory.get(last.playerId) || { lies: 0, seen: 0 };
       rec.seen++;
-      if (last.cards.some(card => card.id !== state.table?.id && card.id !== 'b')) rec.lies++;
+      if (last.cards.some(card => !validCard(state, card))) rec.lies++;
       memory.set(last.playerId, rec);
+    }
+
+    function scheduleCardAction(delay) {
+      clearTimeout(actionTimer);
+      actionTimer = setTimeout(() => act(latestState), delay == null ? rnd(850, 1250) : delay);
     }
 
     function actDice(state) {
@@ -155,28 +184,122 @@ module.exports = function attachBots(io, ctx = {}) {
     }
 
     function act(state) {
-      if (closed || !state || state.phase !== 'playing' || state.currentId !== playerId || !state.table) return;
-      const me = (state.players || []).find(p => p.id === playerId);
+      if (closed || !state || state.phase !== 'playing' ||
+          state.currentId !== playerId || !state.table) return;
+
+      const players = Array.isArray(state.players) ? state.players : [];
+      const me = players.find(player => player.id === playerId);
       if (!me || !Array.isArray(me.hand) || !me.hand.length) return;
+
       const hand = me.hand;
-      const tableId = state.table.id;
       const last = state.lastPlay;
-      const opponents = (state.players || []).filter(p => p.alive && p.id !== playerId && p.handCount > 0);
+      const eventId = state.event && state.event.id;
+      const tableId = state.table.id;
+      const secondTableId = state.table2 && state.table2.id;
+      const opponents = players.filter(player => player.alive && player.id !== playerId && player.handCount > 0);
+      const isValid = card => validCard(state, card);
+
+      // Use new abilities sparingly, then continue the same turn with the refreshed hand/state.
+      const secondary = me.ability2;
+      const abilityTurnKey = [state.gameId, state.round, state.pileCount,
+        last ? last.playerId + ':' + last.count : 'none'].join('|');
+      if (abilitiesEnabled && secondary && secondary.left > 0 &&
+          !secondary.blocked && secondaryAbilityKey !== abilityTurnKey) {
+        const targets = opponents.slice();
+        let payload = null;
+
+        if (secondary.id === 'look' && last && last.playerId !== playerId &&
+            !last.revealed && Math.random() < 0.62) {
+          payload = {};
+        } else if (secondary.id === 'jam' && targets.length && Math.random() < 0.34) {
+          targets.sort((a, b) => {
+            const aValue = ((a.ability2 && !a.ability2.blocked && a.ability2.id) ? 2 : 0) +
+              ((a.ability && a.ability.id === 'revive') ? 2 : 0) + (Number(a.rides) || 0) * 0.15;
+            const bValue = ((b.ability2 && !b.ability2.blocked && b.ability2.id) ? 2 : 0) +
+              ((b.ability && b.ability.id === 'revive') ? 2 : 0) + (Number(b.rides) || 0) * 0.15;
+            return bValue - aValue;
+          });
+          if (targets[0]) payload = { targetId: targets[0].id };
+        } else if (secondary.id === 'fake' && hand.length >= 2 &&
+                   opponents.length && Math.random() < 0.22) {
+          payload = { dir: Math.random() < 0.5 ? 1 : -1 };
+        } else if (secondary.id === 'seat' && targets.length && Math.random() < 0.10) {
+          payload = { targetId: targets[Math.floor(Math.random() * targets.length)].id };
+        }
+
+        if (payload) {
+          secondaryAbilityKey = abilityTurnKey;
+          client.emit('ability2', payload);
+          scheduleCardAction(rnd(850, 1250));
+          return;
+        }
+      }
+
+      // Original character abilities remain available alongside the second ability.
+      if (abilitiesEnabled && me.ability && !me.abilityUsed) {
+        if (me.ability.id === 'peek' && last && last.playerId !== playerId &&
+            !last.revealed && Math.random() < 0.68) {
+          client.emit('useAbility', { type: 'peek', targetId: last.playerId });
+          scheduleCardAction(rnd(850, 1200));
+          return;
+        }
+
+        if (me.ability.id === 'swap' && opponents.length && Math.random() < 0.28) {
+          const invalidIndex = hand.findIndex(card => !isValid(card) &&
+            card.id !== 'shield' && card.id !== 'revenge');
+          const index = invalidIndex >= 0 ? invalidIndex : Math.floor(Math.random() * hand.length);
+          const target = opponents.slice().sort((a, b) =>
+            (Number(b.handCount) || 0) - (Number(a.handCount) || 0))[0];
+          if (target) {
+            client.emit('useAbility', { type: 'swap', index, targetId: target.id });
+            scheduleCardAction(rnd(850, 1200));
+            return;
+          }
+        }
+      }
 
       if (last && last.playerId !== playerId && opponents.length) {
-        const validCount = hand.filter(card => card.id === tableId || card.id === 'b').length;
+        const deckSize = ({ classic: 20, double: 25, chaos: 30 })[state.mode] || 20;
+        const totalValid = 6 + (eventId === 'noBull' ? 0 : 2) + (secondTableId ? 6 : 0);
+        const knownValid = hand.filter(isValid).length;
+        const unknownCards = Math.max(1, deckSize - hand.length -
+          Math.max(0, (Number(state.pileCount) || 0) - (Number(last.count) || 0)));
+        const unseenValid = Math.max(0, Math.min(unknownCards,
+          totalValid - knownValid - Math.max(0, (Number(state.pileCount) || 0) -
+            (Number(last.count) || 0)) * 0.45));
         const playedCount = Math.max(1, Number(last.count) || 1);
-        const possible = Math.max(0, 8 - validCount - Math.max(0, (state.pileCount - playedCount) * 0.6));
+
         let honestChance = 1;
         for (let i = 0; i < playedCount; i++) {
-          honestChance *= Math.max(0, possible - i) / Math.max(1, 15 - i);
+          honestChance *= Math.max(0, unseenValid - i) / Math.max(1, unknownCards - i);
         }
+
+        const info = peekInfo && peekInfo.key === peekKey(state) ? peekInfo : null;
+        if (info) {
+          const peekHasLie = info.cards.some(card => {
+            const idByName = {
+              'Пшеница': 'w', 'Кукуруза': 'c', 'Морковь': 'k', 'Бык': 'b',
+              'Проклятие': 'curse', 'Переворот': 'reverse', 'Защита': 'shield',
+              'Реванш': 'revenge', 'Слепая ставка': 'blind'
+            }[card.name] || 'unknown';
+            return !isValid({ id: idByName });
+          });
+          if (peekHasLie) {
+            client.emit('callBluff');
+            return;
+          }
+          honestChance = info.partial ? Math.min(1, honestChance + 0.15) : 1;
+        }
+
         const history = memory.get(last.playerId);
         const historyBias = history && history.seen > 1
           ? ((history.lies / history.seen) - 0.4) * 0.3 : 0;
-        const chaosBias = profile.wild ? (Math.random() - 0.5) * 0.6 : 0;
-        const score = (1 - honestChance) + (profile.sus - 0.5) * 0.4 +
-          historyBias + chaosBias + (Math.random() - 0.5) * noise;
+        const chaosBias = profile.wild ? (Math.random() - 0.5) * 0.45 : 0;
+        const eventRisk = eventId === 'doubleRide' ? 0.06 : 0;
+        const curseRisk = me.cursed ? 0.10 : 0;
+        const suspicion = (Number(profile.sus) - 0.5) * 0.4;
+        const score = (1 - honestChance) + suspicion + historyBias + chaosBias -
+          eventRisk - curseRisk + (Math.random() - 0.5) * noise;
         if (score > 0.62) {
           client.emit('callBluff');
           return;
@@ -185,24 +308,42 @@ module.exports = function attachBots(io, ctx = {}) {
 
       const valid = [];
       const bluff = [];
+      const protectedCards = [];
       hand.forEach((card, index) => {
-        if (card.id === tableId || card.id === 'b') valid.push(index);
+        if (isValid(card)) valid.push(index);
+        else if (card.id === 'shield' || card.id === 'revenge') protectedCards.push(index);
         else bluff.push(index);
       });
-      const count = Math.min(hand.length, 1 + (Math.random() < 0.35 ? 1 : 0) + (Math.random() < 0.12 ? 1 : 0));
-      const useBluff = bluff.length > 0 && (valid.length === 0 || Math.random() < profile.bluff);
-      const pool = useBluff ? bluff : valid;
-      const indexes = chooseUnique(pool.length ? pool : hand.map((_, i) => i), count);
-      if (indexes.length) client.emit('playCards', { indexes: indexes.sort((a, b) => a - b) });
-    }
 
+      const count = Math.min(3, hand.length,
+        1 + (Math.random() < 0.35 ? 1 : 0) + (Math.random() < 0.12 ? 1 : 0));
+      const useBluff = bluff.length > 0 &&
+        (valid.length === 0 || Math.random() < Number(profile.bluff));
+      let pool = useBluff ? bluff : valid;
+
+      // Keep automatic Shield and quick Revenge unless there is no other card to play.
+      if (!pool.length) pool = bluff.length ? bluff : protectedCards;
+      const indexes = chooseUnique(pool.length ? pool : hand.map((_, index) => index), count)
+        .sort((a, b) => a - b);
+      if (indexes.length) client.emit('playCards', { indexes });
+    }
     client.on('connect', () => client.emit('joinRoom', {
       name: profile.n, character: profile.ch, skin: profile.skin, code
     }));
     client.on('joined', data => {
       playerId = data && data.playerId;
       releasePending();
+      client.emit('getSettings');
       client.emit('setReady', true);
+    });
+    client.on('settings', settings => {
+      abilitiesEnabled = !settings || settings.abilities !== false;
+    });
+    client.on('privatePeek', data => {
+      if (latestState && latestState.lastPlay) {
+        peekInfo = { key: peekKey(latestState), cards: Array.isArray(data.cards) ? data.cards : [],
+          partial: !!data.partial };
+      }
     });
     client.on('connect_error', () => { if (!playerId) stop(); });
     client.on('roomError', () => stop());
@@ -210,52 +351,108 @@ module.exports = function attachBots(io, ctx = {}) {
       if (closed || !state) return;
       latestState = state;
       remember(state);
+      const me = (state.players || []).find(player => player.id === playerId);
+
       if (state.phase === 'lobby') {
         clearTimeout(actionTimer);
         clearTimeout(diceActionTimer);
+        clearTimeout(beggingTimer);
         clearTimeout(finishTimer);
         turnKey = '';
         diceTurnKey = '';
+        beggingDecisionKey = '';
+        secondaryAbilityKey = '';
+        peekInfo = null;
+        client.emit('getSettings');
         client.emit('setReady', true);
         return;
       }
-      const me = (state.players || []).find(p => p.id === playerId);
 
       if (state.phase === 'finished') {
         clearTimeout(actionTimer);
+        clearTimeout(diceActionTimer);
+        clearTimeout(beggingTimer);
         if (!finishTimer) finishTimer = setTimeout(() => {
           client.emit('leaveRoom');
           stop();
         }, 45_000);
         return;
       }
+
       if (state.phase === 'rodeo') {
-        if (state.rodeo?.playerId === playerId && state.rodeo.out && !state.rodeo.saved &&
-            me?.ability?.id === 'revive' && !me.abilityUsed) {
+        clearTimeout(actionTimer);
+        if (me && abilitiesEnabled && state.rodeo &&
+            state.rodeo.playerId === playerId && state.rodeo.out && !state.rodeo.saved &&
+            me.ability && me.ability.id === 'revive' && !me.abilityUsed) {
           client.emit('useAbility', { type: 'revive' });
         }
+
+        const rodeo = state.rodeo;
+        if (me && rodeo && state.reveal && !state.reveal.isLie &&
+            rodeo.callerId === playerId && rodeo.playerId === playerId &&
+            !rodeo.revenged && Number(rodeo.added) > 0 &&
+            Array.isArray(me.hand) && me.hand.some(card => card.id === 'revenge')) {
+          const key = [state.gameId, state.round, 'revenge', rodeo.startedAt].join('|');
+          if (key !== revengeKey) {
+            revengeKey = key;
+            setTimeout(() => {
+              const latest = latestState;
+              const current = latest && latest.players &&
+                latest.players.find(player => player.id === playerId);
+              if (!closed && latest && latest.phase === 'rodeo' && latest.rodeo &&
+                  latest.rodeo.callerId === playerId && latest.rodeo.playerId === playerId &&
+                  !latest.rodeo.revenged && current && (current.hand || []).some(card => card.id === 'revenge')) {
+                client.emit('useCard', { type: 'revenge' });
+              }
+            }, rnd(250, 650));
+          }
+        }
+        return;
+      }
+
+      if (state.phase !== 'playing' || !playerId) return;
+
+      if (state.begging && state.begging.toId === playerId) {
+        const requestId = state.begging.id;
+        if (requestId !== beggingDecisionKey) {
+          beggingDecisionKey = requestId;
+          clearTimeout(beggingTimer);
+          beggingTimer = setTimeout(() => {
+            if (!closed && latestState && latestState.begging &&
+                latestState.begging.id === requestId) {
+              client.emit('begDecision', { accept: Math.random() < 0.4 });
+            }
+          }, rnd(800, 1800));
+        }
+      } else {
+        clearTimeout(beggingTimer);
+        beggingDecisionKey = '';
+      }
+
+      // Saul's original "beg" ability is used after the bot has played.
+      if (me && abilitiesEnabled && me.ability && me.ability.id === 'beg' &&
+          !me.abilityUsed && !state.begging && state.lastPlay &&
+          state.lastPlay.playerId === playerId && state.currentId !== playerId) {
+        const key = [state.gameId, state.round, state.pileCount, 'beg'].join('|');
+        if (key !== beggingDecisionKey && Math.random() < 0.62) {
+          beggingDecisionKey = key;
+          client.emit('useAbility', { type: 'beg' });
+        }
+      }
+
+      if (state.currentId !== playerId) {
         clearTimeout(actionTimer);
         return;
       }
-      if (state.phase !== 'playing' || !playerId) return;
 
-      if (state.begging?.toId === playerId) {
-        const requestId = state.begging.id;
-        setTimeout(() => {
-          if (!closed && latestState?.begging?.id === requestId) {
-            client.emit('begDecision', { accept: Math.random() < 0.4 });
-          }
-        }, rnd(800, 1800));
-      }
-      if (state.currentId !== playerId) return;
       const key = [state.gameId, state.round, state.pileCount, state.currentId,
-        state.lastPlay?.playerId || 'none'].join('|');
+        state.lastPlay && state.lastPlay.playerId || 'none',
+        state.lastPlay && state.lastPlay.count || 0].join('|');
       if (key === turnKey) return;
       turnKey = key;
       clearTimeout(actionTimer);
-      actionTimer = setTimeout(() => act(latestState), rnd(1200, 2800));
+      actionTimer = setTimeout(() => act(latestState), rnd(1000, 2300));
     });
-
     client.on('diceState', state => {
       if (closed || !state) return;
       latestDiceState = state;
@@ -329,15 +526,18 @@ module.exports = function attachBots(io, ctx = {}) {
       pokerActionTimer = setTimeout(() => actPoker(latestPokerState), rnd(1000, 2200));
     });
 
-    const maxLifetime = setTimeout(() => {
+    maxLifetime = setTimeout(() => {
       if (closed) return;
       if (playerId) client.emit('leaveRoom');
       stop();
     }, 30 * 60 * 1000);
+    if (typeof maxLifetime.unref === 'function') maxLifetime.unref();
     client.on('disconnect', () => {
       clearTimeout(maxLifetime);
       clearTimeout(actionTimer);
       clearTimeout(diceActionTimer);
+      clearTimeout(pokerActionTimer);
+      clearTimeout(beggingTimer);
       clearTimeout(finishTimer);
       releasePending();
       closed = true;
