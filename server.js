@@ -129,7 +129,7 @@ function personalizedState(room, viewerId) {
     reveal: game.reveal,
     message: game.message,
     rodeo: game.rodeo,
-    begging: game.begging ? { id: game.begging.id, fromId: game.begging.fromId, toId: game.begging.toId, expiresAt: game.begging.expiresAt } : null,
+    begging: game.begging ? { id: game.begging.id, status: game.begging.status, fromId: game.begging.fromId, callerId: game.begging.callerId, toId: game.begging.toId, expiresAt: game.begging.expiresAt } : null,
     winnerId: game.winnerId,
     players: room.players.map(p => ({
       id: p.id, name: p.name, character: p.character, skin: p.skin,
