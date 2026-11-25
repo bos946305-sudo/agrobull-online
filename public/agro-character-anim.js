@@ -34,9 +34,10 @@
     const A=new T.Vector3(a[0],a[1],a[2]),B=new T.Vector3(b[0],b[1],b[2]),d=B.clone().sub(A);
     const geo=sharedGeometry('segment-'+r1+'-'+r2,()=>new T.CylinderGeometry(r2,r1,1,10,1,false));
     const m=new T.Mesh(geo,material);
+    const length=d.length();
     m.position.copy(A.add(B).multiplyScalar(.5));
-    m.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),d.normalize());
-    m.scale.y=d.length();
+    m.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),d.clone().normalize());
+    m.scale.y=length;
     m.castShadow=false;m.receiveShadow=false;parent.add(m);
     return m;
   }
@@ -163,16 +164,16 @@
     if(type==='peek'){sx-=.52*pulse;sz+=side*.18*pulse;ex-=.30*pulse;}
     if(type==='react'){
       const caught=active?.params?.kind==='caught'||active?.params?.kind==='wrong';
-      sx+=(-.25-(caught?.18:0))*pulse;sz+=-side*.78*pulse;ex-=.16*pulse;wx+=.14*pulse;
+      sx+=(-.25-(caught ? .18 : 0))*pulse;sz+=-side*.78*pulse;ex-=.16*pulse;wx+=.14*pulse;
     }
     if(type==='ride'){sx-=.08;sz+=-side*(.75+.16*Math.sin(elapsed*9))*pulse;ex-=.18*pulse;wz+=Math.sin(elapsed*12+side)*.24*pulse;}
     if(type==='cheer'){sx-=.02*pulse;sz+=-side*1.05*pulse;ex-=.42*pulse;wx-=.18*pulse;}
     arm.shoulder.rotation.set(sx,side*.02,sz);
     arm.elbow.rotation.set(ex,0,ez);
     arm.wrist.rotation.set(wx,0,wz);
-    const fingerCurl=(type==='play'||type==='plea'||type==='turn')?.34:.12;
+    const fingerCurl=(type==='play'||type==='plea'||type==='turn') ? .34 : .12;
     arm.fingers.forEach((f,i)=>{f.pivot.rotation.x=fingerCurl*pulse*.55;f.joint.rotation.x=fingerCurl*pulse*.4;});
-    arm.thumb.rotation.x=(type==='play'||type==='plea'?.28:.08)*pulse;
+    arm.thumb.rotation.x=((type==='play'||type==='plea') ? .28 : .08)*pulse;
   }
   function update(now,dt,state){
     if(!state||!Array.isArray(state.players))return;
@@ -200,7 +201,7 @@
         const home=rig.headHome||{x:0,y:0,z:0};
         const gesture=active?Math.sin(Math.PI*p):0;
         rig.head.rotation.y=(home.y||0)+Math.sin(now*.0007+id.length)*.035;
-        rig.head.rotation.x=(home.x||0)+(type==='plea'?.08:0)*gesture+(type==='react'?-.10*gesture:0);
+        rig.head.rotation.x=(home.x||0)+(type==='plea' ? .08 : 0)*gesture+(type==='react'?-.10*gesture:0);
       }
     }
   }
