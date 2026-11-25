@@ -9,7 +9,7 @@
   if (!renderer || typeof renderer.render !== 'function' ||
       typeof renderer.setPixelRatio !== 'function' || typeof THREE === 'undefined') return;
 
-  const PIXEL_CAP = { low: 1, medium: 1.2, high: 1.5, ultra: 1.85 };
+  const PIXEL_CAP = { low: .78, medium: .95, high: 1.2, ultra: 1.45 };
   const STORAGE_KEY = 'agro_settings_v1';
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
   const readSettings = () => {
@@ -32,17 +32,20 @@
   }
   const cores = Number(navigator.hardwareConcurrency) || 4;
   const memory = Number(navigator.deviceMemory) || 4;
-  const smallScreen = Math.min(window.innerWidth || 0, window.innerHeight || 0) < 720;
-  const weakDevice = cores <= 4 || memory <= 4 || smallScreen;
+  const coarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  const smallScreen = Math.min(window.innerWidth || 0, window.innerHeight || 0) < 820;
+  const weakDevice = cores <= 6 || memory <= 6 || smallScreen || coarsePointer;
+  window.__agroLowPowerDevice = !!window.__agroLowPowerDevice || weakDevice;
+  document.documentElement.classList.toggle('agro-mobile-lite',weakDevice);
   const baseDpr = Math.min(2, Number(window.devicePixelRatio) || 1);
 
   let preferences = {
-    quality: Object.prototype.hasOwnProperty.call(PIXEL_CAP, saved.q) ? saved.q : 'high',
+    quality: Object.prototype.hasOwnProperty.call(PIXEL_CAP, saved.q) ? saved.q : (weakDevice ? 'medium' : 'high'),
     battery: !!saved.battery,
-    fps: [0, 30, 60].includes(Number(saved.fps)) ? Number(saved.fps) : 0
+    fps: Object.prototype.hasOwnProperty.call(saved,'fps') && [0,30,60].includes(Number(saved.fps)) ? Number(saved.fps) : (weakDevice ? 30 : 0)
   };
   let pixelCap = preferences.battery ? 1 : PIXEL_CAP[preferences.quality];
-  let scale = weakDevice ? 0.84 : 1;
+  let scale = weakDevice ? 0.82 : 1;
   let tier = 0;
   let lastPixelRatio = 0;
   let lastFrameAt = 0;
@@ -66,8 +69,9 @@
   }
 
   function effectivePixelRatio() {
-    const requested = Math.min(baseDpr, pixelCap);
-    return Math.round(clamp(requested * scale, 0.55, baseDpr) * 20) / 20;
+    const deviceCap = weakDevice ? 1 : baseDpr;
+    const requested = Math.min(baseDpr, pixelCap, deviceCap);
+    return Math.round(clamp(requested * scale, 0.55, deviceCap) * 20) / 20;
   }
 
   function applyPixelRatio(force = false) {
@@ -224,7 +228,7 @@
   }
 
   function resetAdaptiveQuality() {
-    scale = weakDevice ? 0.84 : 1;
+    scale = weakDevice ? 0.82 : 1;
     samples = 0;
     frameAverage = targetFrameMs();
     lastQualityChange = performance.now();

@@ -14,10 +14,11 @@
   const $ = selector => document.querySelector(selector);
   const SETTINGS_KEY = 'agro_settings_v1';
   const STATS_KEY = 'agro_stats_v1';
+  const mobileProfile = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || (Number(navigator.hardwareConcurrency)||4)<=6 || (Number(navigator.deviceMemory)||4)<=6 || Math.min(window.innerWidth||0,window.innerHeight||0)<820;
 
   let S = {
-    q: 'high', fps: 0, fov: 72, sens: 100, ui: 100,
-    tod: 'auto', rain: true, battery: false,
+    q: mobileProfile ? 'medium' : 'high', fps: mobileProfile ? 30 : 0, fov: 72, sens: 100, ui: 100,
+    tod: 'auto', rain: !mobileProfile, battery: false,
     hl: false, hn: false, hv: false, ht: false, hb: false
   };
   let ST = { g: 0, w: 0, l: 0, st: 0, best: 0, cr: 0, ct: 0, bc: 0, lastGameId: '', lastRevealKey: '' };
@@ -26,8 +27,9 @@
     S = Object.assign(S, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'));
     ST = Object.assign(ST, JSON.parse(localStorage.getItem(STATS_KEY) || '{}'));
   } catch (_) {}
+  if (mobileProfile) { S.q='medium'; S.fps=30; S.rain=false; }
 
-  if (!['low','medium','high','ultra'].includes(S.q)) S.q = 'high';
+  if (!['low','medium','high','ultra'].includes(S.q)) S.q = mobileProfile ? 'medium' : 'high';
   if (!['auto','eve','night','dawn'].includes(S.tod)) S.tod = 'auto';
   S.fps = [0,30,60].includes(Number(S.fps)) ? Number(S.fps) : 0;
   S.fov = Math.max(58, Math.min(90, Number(S.fov) || 72));
@@ -169,10 +171,11 @@
 
   function applySettings() {
     const profile = qualityProfiles[S.q] || qualityProfiles.high;
-    const pixelCap = S.battery ? 1 : profile.pixel;
+    const pixelCap = S.battery ? .82 : (mobileProfile ? .95 : profile.pixel);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelCap));
-    if (renderer.shadowMap.enabled !== (S.battery ? false : profile.shadows)) {
-      renderer.shadowMap.enabled = S.battery ? false : profile.shadows;
+    const shadowsAllowed = !mobileProfile && !S.battery && profile.shadows;
+    if (renderer.shadowMap.enabled !== shadowsAllowed) {
+      renderer.shadowMap.enabled = shadowsAllowed;
       scene.traverse(obj => {
         if (obj.isMesh && obj.material) {
           const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
@@ -184,7 +187,7 @@
     if (window.AgroPerf && typeof window.AgroPerf.setPreferences === 'function') {
       window.AgroPerf.setPreferences({ quality: S.q, battery: S.battery, fps: S.fps });
     }
-    if (typeof dust !== 'undefined' && dust) dust.visible = !S.battery && profile.dust;
+    if (typeof dust !== 'undefined' && dust) dust.visible = !mobileProfile && !S.battery && profile.dust;
     camera.fov = S.fov;
     camera.updateProjectionMatrix();
     document.documentElement.style.setProperty('--ui', String(S.ui / 100));
@@ -197,7 +200,8 @@
       rainLine.visible = S.rain;
       rainLine.material.opacity = S.q === 'low' || S.battery ? .28 : .43;
     }
-    if (rainCount !== (S.battery ? 60 : profile.rain)) setRainCount(S.battery ? 60 : profile.rain);
+    const wantedRain = !S.rain ? 0 : (S.battery ? 45 : (mobileProfile ? Math.min(60,profile.rain) : profile.rain));
+    if (rainCount !== wantedRain) setRainCount(wantedRain);
     if (rainAudioGain && audioContext) {
       try { rainAudioGain.gain.setTargetAtTime(S.rain ? .022 : 0, audioContext.currentTime, .18); } catch (_) {}
     }
@@ -205,7 +209,7 @@
 
   overlay.addEventListener('input', event => {
     S.q = control('sQ').value;
-    S.fps = Number(control('sF').value);
+    S.fps = mobileProfile ? 30 : Number(control('sF').value);
     S.fov = Number(control('sV').value);
     S.sens = Number(control('sS').value);
     S.ui = Number(control('sU').value);
@@ -521,6 +525,6 @@
 
   fillSettings();
   applySettings();
-  setRainCount(S.battery ? 60 : (qualityProfiles[S.q] || qualityProfiles.high).rain);
+  setRainCount(!S.rain ? 0 : (S.battery ? 45 : (mobileProfile ? Math.min(60,(qualityProfiles[S.q] || qualityProfiles.medium).rain) : (qualityProfiles[S.q] || qualityProfiles.high).rain)));
   applySettings();
 })();
