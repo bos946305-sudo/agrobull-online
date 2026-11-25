@@ -204,7 +204,8 @@ module.exports = function attachBots(io, ctx = {}) {
       const abilityTurnKey = [state.gameId, state.round, state.pileCount,
         last ? last.playerId + ':' + last.count : 'none'].join('|');
       if (abilitiesEnabled && secondary && secondary.left > 0 &&
-          !secondary.blocked && secondaryAbilityKey !== abilityTurnKey) {
+          !secondary.blocked && !(me.ability2 && me.ability2.blocked) &&
+          secondaryAbilityKey !== abilityTurnKey) {
         const targets = opponents.slice();
         let payload = null;
 
@@ -236,7 +237,8 @@ module.exports = function attachBots(io, ctx = {}) {
       }
 
       // Original character abilities remain available alongside the second ability.
-      if (abilitiesEnabled && me.ability && !me.abilityUsed) {
+      if (abilitiesEnabled && !(me.ability2 && me.ability2.blocked) &&
+          me.ability && !me.abilityUsed) {
         if (me.ability.id === 'peek' && last && last.playerId !== playerId &&
             !last.revealed && Math.random() < 0.68) {
           client.emit('useAbility', { type: 'peek', targetId: last.playerId });
@@ -383,6 +385,7 @@ module.exports = function attachBots(io, ctx = {}) {
         clearTimeout(actionTimer);
         if (me && abilitiesEnabled && state.rodeo &&
             state.rodeo.playerId === playerId && state.rodeo.out && !state.rodeo.saved &&
+            !(me.ability2 && me.ability2.blocked) &&
             me.ability && me.ability.id === 'revive' && !me.abilityUsed) {
           client.emit('useAbility', { type: 'revive' });
         }
@@ -429,9 +432,16 @@ module.exports = function attachBots(io, ctx = {}) {
         beggingDecisionKey = '';
       }
 
+      // Do not try to play while the bot is deciding whether to accept a plea.
+      if (state.begging && state.begging.toId === playerId) {
+        clearTimeout(actionTimer);
+        return;
+      }
+
       // Saul's original "beg" ability is used after the bot has played.
-      if (me && abilitiesEnabled && me.ability && me.ability.id === 'beg' &&
-          !me.abilityUsed && !state.begging && state.lastPlay &&
+      if (me && abilitiesEnabled && !(me.ability2 && me.ability2.blocked) &&
+          me.ability && me.ability.id === 'beg' && !me.abilityUsed &&
+          !state.begging && state.lastPlay &&
           state.lastPlay.playerId === playerId && state.currentId !== playerId) {
         const key = [state.gameId, state.round, state.pileCount, 'beg'].join('|');
         if (key !== beggingDecisionKey && Math.random() < 0.62) {
