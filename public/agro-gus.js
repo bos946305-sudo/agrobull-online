@@ -183,8 +183,27 @@
       const clone=template.clone(true);
       clone.userData.agroGus=true;
       clone.userData.glb=true;
+      // Three lightweight cards held in front of Gus.
+      const cardGroup=new THREE.Group();
+      cardGroup.name='Gus visible cards';
+      const cardMat=new THREE.MeshBasicMaterial({color:0xffedc2,side:THREE.DoubleSide});
+      const edgeMat=new THREE.MeshBasicMaterial({color:0xd6a24f,side:THREE.DoubleSide});
+      for(let i=0;i<3;i++){
+        const card=new THREE.Group();
+        const back=new THREE.Mesh(new THREE.PlaneGeometry(.29,.43),cardMat);
+        const border=new THREE.Mesh(new THREE.PlaneGeometry(.315,.455),edgeMat);
+        border.position.z=-.006;
+        card.add(border,back);
+        card.position.set((i-1)*.19,0,Math.abs(i-1)*-.018);
+        card.rotation.z=(i-1)*-.16;
+        cardGroup.add(card);
+      }
+      cardGroup.position.set(0,1.18,.43);
+      cardGroup.rotation.x=-.08;
+      clone.add(cardGroup);
+      clone.userData.gusCards=cardGroup;
       clone.userData.head=clone.getObjectByName('Guss Head')||clone.getObjectByName('Gus Head')||null;
-      clone.userData.agroGusUpdate=elapsed=>{if(clone.userData.head)clone.userData.head.rotation.y=Math.sin(elapsed*.48)*.018;};
+      clone.userData.agroGusUpdate=elapsed=>{if(clone.userData.head)clone.userData.head.rotation.y=Math.sin(elapsed*.48)*.012;if(clone.userData.gusCards){const cards=clone.userData.gusCards;cards.rotation.z=Math.sin(elapsed*1.15)*.018;cards.position.y=1.18+Math.sin(elapsed*1.8)*.012;}};
       clone.traverse(node=>{
         if(!node.isMesh)return;
         node.frustumCulled=false;
