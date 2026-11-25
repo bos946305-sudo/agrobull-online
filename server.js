@@ -68,7 +68,7 @@ function profileForSocket(socket, data = {}) {
 function skillFor(player) {
   return ({
     walter: { id: 'swap', name: 'Химический обмен', hint: 'Поменять одну карту на случайную карту соперника' },
-    saul: { id: 'beg', name: 'Адвокатская мольба', hint: 'Попросить соперника не проверять блеф' },
+    saul: { id: 'beg', name: 'Адвокатская мольба', hint: 'Полностью закрыть проверку блефа на 10 секунд' },
     jesse: { id: 'peek', name: 'Подглядеть', hint: 'Тайно посмотреть карты одного соперника' },
     gus: { id: 'revive', name: 'Второе дыхание', hint: 'Один раз пережить решающий сброс с быка' }
   })[player.character] || { id: 'peek', name: 'Подглядеть', hint: 'Тайно посмотреть карты соперника' };
@@ -230,10 +230,16 @@ require('./server-voice')(io, { getRoomForSocket: roomFor });
 require('./server-specials')(io, { getRoomForSocket: roomFor, rooms, broadcastState, nextPlayerWithCards, playerById });
 require('./server-abilities')(io, { getRoomForSocket: roomFor, rooms, broadcastState, playerById });
 
+function isBeggingProtectionActive(game, now = Date.now()) {
+  const protection = game && game.begging;
+  return !!(protection && game.lastPlay && protection.fromId === game.lastPlay.playerId &&
+    Number.isFinite(Number(protection.expiresAt)) && Number(protection.expiresAt) > now);
+}
+
 function resolveCall(room, caller) {
   const game = room.game;
   const last = game.lastPlay;
-  if (!last || game.phase !== 'playing') return;
+  if (!last || game.phase !== 'playing' || isBeggingProtectionActive(game)) return;
 
   // A crop card must match the declared table crop. The bull is a wild card.
   const cardResults = last.cards.map(card => ({
@@ -559,20 +565,25 @@ io.on('connection', socket => {
     }
 
     if (skill.id === 'beg') {
-      if (game.phase !== 'playing' || !player.alive || !game.lastPlay || game.lastPlay.playerId !== player.id || game.currentId === player.id || game.begging) return roomError(socket, 'Умолять можно только после своего хода, пока соперник решает, проверять ли блеф.');
+      if (game.phase !== 'playing' || !player.alive || !game.lastPlay ||
+          game.lastPlay.playerId !== player.id || game.currentId === player.id ||
+          isBeggingProtectionActive(game)) {
+        return roomError(socket, 'Адвокатскую мольбу можно включить после своей выкладки, пока соперник ещё может проверить блеф.');
+      }
       player.abilityUsed = true;
-      const request = { id: id(), fromId: player.id, toId: game.currentId, expiresAt: Date.now() + 8000 };
-      game.begging = request;
-      game.message = `${player.name} умоляет не проверять его карты…`;
+      const duration = 10_000;
+      const protection = { id: id(), fromId: player.id, toId: game.currentId, expiresAt: Date.now() + duration };
+      game.begging = protection;
+      game.message = `⚖️ ${player.name} включил адвокатскую защиту: проверка блефа закрыта на 10 секунд!`;
       broadcastState(room);
-      const code = room.code, gameId = game.gameId, requestId = request.id;
+      const code = room.code, gameId = game.gameId, protectionId = protection.id;
       setTimeout(() => {
         const currentRoom = rooms.get(code);
-        if (!currentRoom?.game || currentRoom.game.gameId !== gameId || currentRoom.game.begging?.id !== requestId) return;
+        if (!currentRoom?.game || currentRoom.game.gameId !== gameId || currentRoom.game.begging?.id !== protectionId) return;
         currentRoom.game.begging = null;
-        currentRoom.game.message = 'Мольба закончилась. Решение за игроком, чей сейчас ход.';
+        currentRoom.game.message = '⏱ Адвокатская защита закончилась. Теперь блеф снова можно проверить.';
         broadcastState(currentRoom);
-      }, 8000);
+      }, duration);
       return;
     }
 
@@ -586,24 +597,6 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('begDecision', (data = {}) => {
-    const room = roomFor(socket), game = room?.game;
-    const player = room && playerById(room, socket.data.playerId);
-    const request = game?.begging;
-    if (!room || !game || game.phase !== 'playing' || !player || !request || request.toId !== player.id || game.currentId !== player.id) return;
-    game.begging = null;
-    if (data.accept === true) {
-      game.lastPlay = null;
-      game.reveal = null;
-      const next = nextPlayerWithCards(room, player.id);
-      if (!next) { finishGame(room, player.id); return; }
-      game.currentId = next.id;
-      game.message = `${player.name} принял мольбу. Проверки не будет — ход переходит дальше.`;
-    } else {
-      game.message = `${player.name} отказался от мольбы. Можно продолжить ход или проверить блеф.`;
-    }
-    broadcastState(room);
-  });
 
   socket.on('playCards', (data = {}, acknowledge) => {
     const reply = (ok, message) => {
@@ -627,6 +620,7 @@ io.on('connection', socket => {
       return;
     }
     const cards = indexes.sort((a, b) => b - a).map(i => player.hand.splice(i, 1)[0]).reverse();
+    if (game.begging) game.begging = null;
     if (io.cardFx) io.cardFx.beforePlay(room, player, cards);
     game.pileCount += cards.length;
     game.lastPlay = { playerId: player.id, cards };
@@ -659,6 +653,10 @@ io.on('connection', socket => {
     const game = room?.game;
     const caller = room && playerById(room, socket.data.playerId);
     if (!room || !game || game.phase !== 'playing' || !caller || game.currentId !== caller.id || !game.lastPlay) return;
+    if (isBeggingProtectionActive(game)) {
+      const seconds = Math.max(1, Math.ceil((Number(game.begging.expiresAt) - Date.now()) / 1000));
+      return roomError(socket, `⚖️ Адвокатская мольба активна: проверить этот блеф нельзя ещё ${seconds} сек.`);
+    }
     resolveCall(room, caller);
   });
 

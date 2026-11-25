@@ -201,6 +201,8 @@ function renderGameState(state){
  $('#leftpanel').innerHTML='';const canPeek=!!(me&&me.ability?.id==='peek'&&!me.abilityUsed&&me.alive&&state.phase==='playing');p.forEach(pl=>{const ch=characters.find(c=>c.id===pl.character)||characters[0],tag=document.createElement('div');tag.className='playerTag'+(pl.id===state.currentId?' active':'')+(!pl.alive?' dead':'')+(canPeek&&pl.id!==selfId&&pl.alive&&pl.handCount>0?' peekTarget':'');tag.innerHTML=`<span class="face">${ch.emoji}</span><span class="pmeta"><strong>${escapeHtml(pl.name)} ${pl.id===selfId?'(ты)':''}</strong><small>${pl.alive?`${pl.handCount} карт • ${pl.rides}/${pl.fallAt} выездов`:'ВЫБЫЛ'}</small></span><span class="rides">${pl.id===state.currentId?'ХОД':''}</span>`;if(canPeek&&pl.id!==selfId&&pl.alive&&pl.handCount>0){tag.title='Нажми, чтобы подглядеть карты';tag.onclick=()=>socket.emit('useAbility',{type:'peek',targetId:pl.id})}$('#leftpanel').append(tag)});
  $('#cropName').textContent=state.table?`${state.table.icon} ${state.table.name}`:`РАУНД ${state.round||1}`;
  const last=state.lastPlay,actor=last&&p.find(x=>x.id===last.playerId);
+ const protectionActive=!!(state.begging&&last&&state.begging.fromId===last.playerId&&Number(state.begging.expiresAt)>Date.now());
+ const protectionSeconds=protectionActive?Math.max(1,Math.ceil((Number(state.begging.expiresAt)-Date.now())/1000)):0;
  const current=p.find(x=>x.id===state.currentId);
  const isPlayMessage=/выложил\s+\d+\s+карт/i.test(state.message||'');
  $('#statusLine').textContent=isPlayMessage?(current?'Ход: '+current.name:'Карты выложены'):(state.message||'');
@@ -223,21 +225,23 @@ function renderGameState(state){
  }
  const hand=me?.hand||[];const handKey=`${state.round}|${hand.map(c=>c.id).join(',')}`;if(handKey!==lastHandKey){selected.clear();lastHandKey=handKey}
  $('#hand').innerHTML='';hand.forEach((card,index)=>{const b=document.createElement('button');b.className='playingcard'+(card.id==='b'?' bull':'')+(selected.has(index)?' selected':'');b.innerHTML=`<span class="corner">${card.id==='b'?'★':'AG'}</span><span class="sym">${card.icon}</span><span class="label">${card.name}</span>`;b.onclick=()=>{if(!isMyTurn)return;if(selected.has(index))selected.delete(index);else if(selected.size<3)selected.add(index);renderGameState({...state,players:state.players});};$('#hand').append(b)});
- $('#playBtn').disabled=!isMyTurn||selected.size===0||playRequestPending;$('#callBtn').disabled=!isMyTurn||!last;
- $('#hint').textContent=isMyTurn?(last?'Твой ход: продолжай или проверь предыдущий блеф':'Твой ход: выбери 1–3 карты'):(state.phase==='rodeo'?'Смотри на быка…':'Ожидание хода соперника');
+ $('#playBtn').disabled=!isMyTurn||selected.size===0||playRequestPending;$('#callBtn').disabled=!isMyTurn||!last||protectionActive;
+ $('#hint').textContent=protectionActive&&isMyTurn?`⚖️ Адвокатская защита: проверка закрыта ещё ${protectionSeconds} сек.`:(isMyTurn?(last?'Твой ход: продолжай или проверь предыдущий блеф':'Твой ход: выбери 1–3 карты'):(state.phase==='rodeo'?'Смотри на быка…':'Ожидание хода соперника'));
  if(state.phase==='rodeo'&&state.rodeo){const loser=p.find(x=>x.id===state.rodeo.playerId);$('#statusLine').textContent=`${loser?.name||'Игрок'} на быке — уровень ${state.rodeo.level}/${state.rodeo.threshold}`}
- if(state.phase==='playing'&&state.currentId===selfId)$('#hint').textContent=last?'Проверить блеф или выложить свои карты':'Твой ход — выложи карты';
+ if(state.phase==='playing'&&state.currentId===selfId)$('#hint').textContent=protectionActive?`⚖️ Проверка заблокирована ещё ${protectionSeconds} сек.`:(last?'Проверить блеф или выложить свои карты':'Твой ход — выложи карты');
  const skillRoot=$('#skillControls');skillRoot.innerHTML='';
- if(state.begging?.toId===selfId){const asker=p.find(x=>x.id===state.begging.fromId);const note=document.createElement('span');note.className='skillLabel';note.textContent=`${asker?.name||'Соперник'} умоляет не проверять карты. Принять?`;skillRoot.append(note);addSkillButton(skillRoot,'🙏 ПОЩАДИТЬ',()=>socket.emit('begDecision',{accept:true}));addSkillButton(skillRoot,'ОТКАЗАТЬ',()=>socket.emit('begDecision',{accept:false}));}
- else if(me&&me.ability&&!me.abilityUsed&&me.alive&&(state.phase==='playing'||state.phase==='rodeo')){const targets=p.filter(x=>x.alive&&x.id!==selfId&&x.handCount>0);
+ if(protectionActive&&state.begging.fromId===selfId){const note=document.createElement('span');note.className='skillLabel saulProtectionCountdown';note.id='saulProtectionTimer';note.textContent=`🛡️ Твоя защита активна: ${protectionSeconds} сек. Никто не может проверить эту выкладку.`;skillRoot.append(note);}
+ if(protectionActive&&state.begging.toId===selfId){const asker=p.find(x=>x.id===state.begging.fromId);const note=document.createElement('span');note.className='skillLabel saulProtectionCountdown';note.id='saulProtectionTimer';note.textContent=`⚖️ ${asker?.name||'Сол'} закрыл проверку на ${protectionSeconds} сек. Ты можешь продолжать ход.`;skillRoot.append(note);}
+ if(me&&me.ability&&!me.abilityUsed&&me.alive&&(state.phase==='playing'||state.phase==='rodeo')){const targets=p.filter(x=>x.alive&&x.id!==selfId&&x.handCount>0);
    if(me.ability.id==='swap'&&isMyTurn){const chosen=[...selected];addSkillTarget(skillRoot,me.ability.name,targets,targetId=>{if(chosen.length!==1)return notify('Для обмена выбери ровно одну карту.');socket.emit('useAbility',{type:'swap',targetId,index:chosen[0]});selected.clear()},chosen.length!==1);const note=document.createElement('span');note.className='skillLabel';note.textContent='Выбери одну свою карту и соперника';skillRoot.append(note);}
    else if(me.ability.id==='peek'){const note=document.createElement('span');note.className='skillLabel';note.textContent='👁 Нажми на игрока слева, чтобы увидеть его карты';skillRoot.append(note);}
-   else if(me.ability.id==='beg'&&state.phase==='playing'&&state.lastPlay?.playerId===selfId&&state.currentId!==selfId){addSkillButton(skillRoot,'🙏 УМОЛЯТЬ',()=>socket.emit('useAbility',{type:'beg'}));}
+   else if(me.ability.id==='beg'&&state.phase==='playing'&&state.lastPlay?.playerId===selfId&&state.currentId!==selfId&&!protectionActive){addSkillButton(skillRoot,'🙏 АДВОКАТСКАЯ МОЛЬБА · 10 СЕК',()=>socket.emit('useAbility',{type:'beg'}));const note=document.createElement('span');note.className='skillLabel';note.textContent='Один раз за матч: после своей выкладки запрещает проверять блеф на 10 секунд.';skillRoot.append(note);}
    else if(me.ability.id==='revive'&&state.phase==='rodeo'&&state.rodeo?.playerId===selfId&&state.rodeo.out&&!state.rodeo.saved){addSkillButton(skillRoot,'🐂 ВТОРОЕ ДЫХАНИЕ',()=>socket.emit('useAbility',{type:'revive'}));const note=document.createElement('span');note.className='skillLabel';note.textContent='Нажми до конца анимации падения';skillRoot.append(note);}
  }
  skillRoot.style.display=skillRoot.children.length?'flex':'none';
  if(state.phase==='finished'){$('#hint').textContent='Матч завершён'}
 }
+setInterval(()=>{const b=gameState&&gameState.begging;if(!b)return;const seconds=Math.max(0,Math.ceil((Number(b.expiresAt)-Date.now())/1000));const node=$('#saulProtectionTimer');if(node){node.textContent=node.textContent.replace(/\\d+ сек/,seconds+' сек');}},250);
 $('#playBtn').type='button';
 $('#playBtn').onclick=()=>{
  const button=$('#playBtn'),state=gameState,me=state?.players?.find(p=>p.id===selfId),hand=me?.hand||[];

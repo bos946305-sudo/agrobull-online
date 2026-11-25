@@ -70,7 +70,6 @@ module.exports = function attachBots(io, ctx = {}) {
     let actionTimer = null;
     let diceActionTimer = null;
     let pokerActionTimer = null;
-    let beggingTimer = null;
     let latestPokerState = null;
     let pokerTurnKey = '';
     let latestDiceState = null;
@@ -98,7 +97,6 @@ module.exports = function attachBots(io, ctx = {}) {
       clearTimeout(actionTimer);
       clearTimeout(diceActionTimer);
       clearTimeout(pokerActionTimer);
-      clearTimeout(beggingTimer);
       clearTimeout(finishTimer);
       clearTimeout(maxLifetime);
       releasePending();
@@ -260,7 +258,8 @@ module.exports = function attachBots(io, ctx = {}) {
         }
       }
 
-      if (last && last.playerId !== playerId && opponents.length) {
+      if (last && last.playerId !== playerId && opponents.length &&
+          !(state.begging && state.begging.fromId === last.playerId && Number(state.begging.expiresAt) > Date.now())) {
         const deckSize = ({ classic: 20, double: 25, chaos: 30 })[state.mode] || 20;
         const totalValid = 6 + (eventId === 'noBull' ? 0 : 2) + (secondTableId ? 6 : 0);
         const knownValid = hand.filter(isValid).length;
@@ -358,7 +357,6 @@ module.exports = function attachBots(io, ctx = {}) {
       if (state.phase === 'lobby') {
         clearTimeout(actionTimer);
         clearTimeout(diceActionTimer);
-        clearTimeout(beggingTimer);
         clearTimeout(finishTimer);
         turnKey = '';
         diceTurnKey = '';
@@ -373,7 +371,6 @@ module.exports = function attachBots(io, ctx = {}) {
       if (state.phase === 'finished') {
         clearTimeout(actionTimer);
         clearTimeout(diceActionTimer);
-        clearTimeout(beggingTimer);
         if (!finishTimer) finishTimer = setTimeout(() => {
           client.emit('leaveRoom');
           stop();
@@ -415,28 +412,7 @@ module.exports = function attachBots(io, ctx = {}) {
 
       if (state.phase !== 'playing' || !playerId) return;
 
-      if (state.begging && state.begging.toId === playerId) {
-        const requestId = state.begging.id;
-        if (requestId !== beggingDecisionKey) {
-          beggingDecisionKey = requestId;
-          clearTimeout(beggingTimer);
-          beggingTimer = setTimeout(() => {
-            if (!closed && latestState && latestState.begging &&
-                latestState.begging.id === requestId) {
-              client.emit('begDecision', { accept: Math.random() < 0.4 });
-            }
-          }, rnd(800, 1800));
-        }
-      } else {
-        clearTimeout(beggingTimer);
-        beggingDecisionKey = '';
-      }
-
-      // Do not try to play while the bot is deciding whether to accept a plea.
-      if (state.begging && state.begging.toId === playerId) {
-        clearTimeout(actionTimer);
-        return;
-      }
+      // Saul's shield blocks only challenges; bots still take their normal turn.
 
       // Saul's original "beg" ability is used after the bot has played.
       if (me && abilitiesEnabled && !(me.ability2 && me.ability2.blocked) &&
@@ -547,7 +523,6 @@ module.exports = function attachBots(io, ctx = {}) {
       clearTimeout(actionTimer);
       clearTimeout(diceActionTimer);
       clearTimeout(pokerActionTimer);
-      clearTimeout(beggingTimer);
       clearTimeout(finishTimer);
       releasePending();
       closed = true;
@@ -630,7 +605,7 @@ module.exports = function attachBots(io, ctx = {}) {
         io.to(room.code).emit('turnTimer', { id: game.currentId, deadline: timer.deadline, ms: turnMs });
         continue;
       }
-      if (Date.now() < timer.deadline || game.begging) continue;
+      if (Date.now() < timer.deadline) continue;
 
       const player = room.players.find(p => p.id === game.currentId);
       const playerSocket = player && io.sockets.sockets.get(player.socketId);
@@ -645,7 +620,8 @@ module.exports = function attachBots(io, ctx = {}) {
       io.to(room.code).emit('chat', { from: 'timer', name: '⏱', t: player.name + ': время вышло' });
 
       try {
-        if (game.lastPlay && game.lastPlay.playerId !== player.id && noOtherHands) {
+        const protectedPlay = !!(game.begging && game.lastPlay && game.begging.fromId === game.lastPlay.playerId && Number(game.begging.expiresAt) > Date.now());
+        if (game.lastPlay && game.lastPlay.playerId !== player.id && noOtherHands && !protectedPlay) {
           const handler = playerSocket.listeners('callBluff')[0];
           if (handler) handler();
         } else {
