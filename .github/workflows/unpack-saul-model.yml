@@ -1,0 +1,45 @@
+name: Unpack Saul Goodman model
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/unpack-saul-model.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  unpack-saul:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract uploaded Saul bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f public/agrobull-saul-github-upload.zip
+          unzip -o public/agrobull-saul-github-upload.zip -d .
+          test -f public/index.html
+          test -f public/agro-saul.js
+          test -f public/models/Saul_Goodman.glb
+
+      - name: Commit extracted character files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/index.html public/agro-saul.js public/models/Saul_Goodman.glb
+          if git diff --cached --quiet; then
+            echo "No new Saul files to commit."
+            exit 0
+          fi
+          git commit -m "Add Saul Goodman 3D character"
+          git push origin HEAD:main
