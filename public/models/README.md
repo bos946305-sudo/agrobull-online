@@ -1,6 +1,10 @@
-# Gus Fring model asset
+# AGROBULL 3D character models
 
-Place the self-contained model file `gustavo_fring_agrobull.glb` in this folder.
-The game loader requests it from `/models/gustavo_fring_agrobull.glb`.
-Use the self-contained AGROBULL GLB; `Guss Body.glb` references an external `suit.png` texture and is not the preferred asset.
-Until the GLB is present, the game safely keeps its built-in procedural 3D Gus character.
+The Gustavo Fring loader requests this exact asset:
+
+- `Gustavo_Fring.glb`
+
+Put the optimized, self-contained GLB in this folder as `public/models/Gustavo_Fring.glb`.
+It includes both head and suit textures, so no extra PNG files or external GLTF loader are needed.
+
+The app retains its procedural Gus fallback until the GLB asset is present.
