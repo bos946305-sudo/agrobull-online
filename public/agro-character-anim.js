@@ -104,7 +104,8 @@
     // GLB wrappers are normalized by a model-specific scale. Counter-scale the overlay so
     // the hand rig stays in the same world units as the normalized 2.35-unit character.
     const sx=Math.abs(root.scale.x)||1,sy=Math.abs(root.scale.y)||1,sz=Math.abs(root.scale.z)||1;
-    rig.scale.set(1/sx,1/sy,1/sz);
+    const isSeatedGus=record.player?.character==='gus';
+    rig.scale.set(1/sx,isSeatedGus?1/sx:1/sy,1/sz);
     root.add(rig);
     const arms={left:makeArm(rig,-1,cloth,skin),right:makeArm(rig,1,cloth,skin)};
     const cards=makeCardFan(rig);
@@ -125,7 +126,7 @@
   let lastState=null,lastPlayKey='',lastRevealKey='',lastBegKey='',lastRodeoKey='',lastCurrentId=null,lastPhase=null;
   function onState(state){
     if(!state||!Array.isArray(state.players))return;
-    if(!lastState){lastState=state;lastCurrentId=state.currentId;lastPhase=state.phase;return;}
+    if(!lastState){lastState=state;lastCurrentId=state.currentId;lastPhase=state.phase;if(state.lastPlay)lastPlayKey=[state.gameId,state.round,state.pileCount,state.lastPlay.playerId,state.lastPlay.count].join(':');if(state.reveal)lastRevealKey=[state.reveal.playedById,state.reveal.callerId,state.reveal.loserId,state.reveal.isLie?1:0,state.phase].join(':');if(state.begging)lastBegKey=[state.begging.id,state.begging.status].join(':');if(state.rodeo)lastRodeoKey=[state.rodeo.playerId,state.rodeo.startedAt].join(':');return;}
     if(state.gameId!==lastState.gameId){lastPlayKey='';lastRevealKey='';lastBegKey='';lastRodeoKey='';}
     const play=state.lastPlay;
     if(play){
@@ -190,7 +191,7 @@
       poseArm(rig.arms.left,now/1000,type,p,-1,active);
       poseArm(rig.arms.right,now/1000,type,p,1,active);
       const cardCount=clamp(Number(r.player?.handCount)||0,0,3);
-      rig.cards.cards.forEach((card,i)=>{card.visible=i<Math.max(1,cardCount);});
+      rig.cards.cards.forEach((card,i)=>{card.visible=i<Math.ceil(cardCount);});
       let z=.59,y=1.075,rx=-.08,rz=Math.sin(now*.0012)*.018;
       if(type==='play'){const k=Math.sin(Math.PI*p);z+=.38*k; y-=.14*k;rx-=.85*k;rz+=.08*k;}
       if(type==='plea'){const k=Math.sin(Math.PI*p);z+=.06*k;y+=.13*k;rz+=.10*k;}
