@@ -11,6 +11,7 @@
   }
 
   const T=THREE, rnd=Math.random, clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const reducedEffects=!!window.__agroLowPowerDevice;
   const ease=k=>k*k*(3-2*k), wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
   const TABLE_Y=1.485, effects=[], up=new T.Vector3();
   const va=new T.Vector3(), vb=new T.Vector3(), vc=new T.Vector3(), vd=new T.Vector3();
@@ -66,15 +67,7 @@
   const bass=[98,98,130.8,98,110,110,146.8,98];
   const chords=[[196,246.9,293.7],[196,246.9,293.7],[174.6,220,261.6],[196,246.9,293.7]];
   let musicTimer=null, ambienceTimer=null;
-  function startSound(){
-    const c=audioContext();if(!c||soundStarted)return;soundStarted=true;
-    const crowd=c.createBufferSource(),filter=c.createBiquadFilter(),gain=c.createGain(),lfo=c.createOscillator(),lg=c.createGain();
-    crowd.buffer=noiseBuffer;crowd.loop=true;filter.type='bandpass';filter.frequency.value=420;filter.Q.value=.55;
-    gain.gain.value=.022;lfo.frequency.value=.22;lg.gain.value=.009;lfo.connect(lg);lg.connect(gain.gain);
-    crowd.connect(filter);filter.connect(gain);gain.connect(master);crowd.start();lfo.start();
-    musicTimer=setInterval(()=>{if(!soundOn)return;const n=beat++%16;if(n%2===0)tone(bass[(n/2)|0],'triangle',.32,.055);if(n%4===2)chords[n>>2].forEach(f=>tone(f*1.5,'triangle',.42,.014))},340);
-    ambienceTimer=setInterval(()=>{if(!soundOn)return;const r=rnd();if(r<.28)S.creak();else if(r<.52)S.glass();else if(r<.68)S.laugh()},5200);
-  }
+  function startSound(){const c=audioContext();if(!c||soundStarted)return;soundStarted=true;}
   document.addEventListener('pointerdown',startSound,{passive:true});
   const soundBtn=document.createElement('button');soundBtn.id='agroSoundToggle';soundBtn.type='button';soundBtn.textContent='🔊';soundBtn.title='Звук';
   soundBtn.onclick=()=>{soundOn=!soundOn;soundBtn.textContent=soundOn?'🔊':'🔇';if(master)master.gain.setTargetAtTime(soundOn?.52:0,AC.currentTime,.04);if(soundOn)startSound()};
@@ -83,6 +76,7 @@
   /* Physical cards */
   function cardBack(){return typeof cardBackMaterial!=='undefined'&&cardBackMaterial?cardBackMaterial.clone():new T.MeshStandardMaterial({color:0x76251a,roughness:.62})}
   function throwCards(playerId,count){
+    if(reducedEffects){S.card();return;}
     if(typeof scene==='undefined'||!scene||typeof camera==='undefined'||!camera)return;
     const actor=actorModels.get(playerId);
     const stack=(typeof cardStack!=='undefined'&&cardStack)?cardStack.children.slice(-count):[];
@@ -159,6 +153,7 @@
     return g.userData.fxGestureRig={arms,visibility:arms.map(a=>a.visible),limbs,root};
   }
   function emote(id,type,duration,delay){
+    if(reducedEffects)return;
     setTimeout(()=>{
       const r=actorModels.get(id);if(!r||!r.group.visible||!poses[type])return;
       const h=r.group.userData.head;
@@ -196,11 +191,7 @@
   /* Camera is overridden only for the current render, then restored.
      The main game recalculates its first-person camera every frame. */
   let cine=null,currentGameId=null;
-  function startCine(type,duration,id){
-    if(typeof camera==='undefined'||!camera||(typeof rodeomotion!=='undefined'&&rodeomotion))return;
-    cine={type,id,start:performance.now(),duration,baseFov:camera.fov,startPos:camera.position.clone()};
-    bars.classList.add('on');
-  }
+  function startCine(){ /* Deliberately disabled: keep gameplay camera stable and remove cinematic overhead. */ }
   function stepCine(now,basePos,baseQuat){
     if(!cine)return;
     const k=clamp((now-cine.start)/cine.duration,0,1);
@@ -245,13 +236,11 @@
     if(!state)return;
     const lp=state.lastPlay,key=lp?[state.round,state.pileCount,lp.playerId,lp.count].join('|'):'';
     if(state.phase==='playing'&&state.gameId&&state.gameId!==currentGameId){
-      currentGameId=state.gameId;startCine('intro',5600);
-      [0,430,900,1380].forEach(d=>setTimeout(S.step,d));setTimeout(S.creak,280);setTimeout(S.glass,1420);
+      currentGameId=state.gameId;
     }
     if(seen&&lp&&!lp.revealed&&key&&key!==lastPlayKey)throwCards(lp.playerId,lp.count);
     if(lp&&lp.revealed&&!revealed){
       S.impact();S.gasp();flipCards(lp.cards||[]);
-      if(lp.playerId===selfId)startCine('shake',1250);else startCine('close',2550,lp.playerId);
       emote(lp.playerId,'fear',2.3);others(state,lp.playerId).forEach(p=>emote(p.id,'surprise',1.5));
     }
     if(state.phase==='rodeo'&&lastPhase!=='rodeo'&&state.rodeo){
