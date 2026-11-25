@@ -48,14 +48,16 @@
     box(root,metal,[0,1.39,.232],[.009,.59,.008]);
     for(const s of [-1,1]){box(root,jacket,[s*.145,1.48,.235],[.11,.12,.018]);box(root,jacketHi,[s*.145,1.545,.24],[.125,.025,.022]);}
     box(root,jacketHi,[0,1.035,.02],[.37,.07,.26]);
+    const staticArms=new THREE.Group();staticArms.name='legacy-static-arms';root.add(staticArms);
     for(const s of [-1,1]){
       const shoulder=[s*.22,1.68,0],elbow=[s*.285,1.32,.035],wrist=[s*.265,1.04,.105];
-      rod(root,shoulder,elbow,.105,jacket,.083);ball(root,jacketHi,elbow,[.085,.085,.085],18);
-      rod(root,elbow,wrist,.082,jacket,.057);tapered(root,jacketHi,s*.265,1.055,.105,.062,.062,.075,18);
-      ball(root,skin,[s*.265,.955,.125],[.065,.085,.075],18);
-      for(let i=0;i<4;i++)rod(root,[s*.265+(i-1.5)*.025,.93,.16],[s*.265+(i-1.5)*.028,.875,.17],.012,skin,.009);
-      ball(root,skin,[s*.215,.95,.16],[.035,.06,.04],14);
+      rod(staticArms,shoulder,elbow,.105,jacket,.083);ball(staticArms,jacketHi,elbow,[.085,.085,.085],18);
+      rod(staticArms,elbow,wrist,.082,jacket,.057);tapered(staticArms,jacketHi,s*.265,1.055,.105,.062,.062,.075,18);
+      ball(staticArms,skin,[s*.265,.955,.125],[.065,.085,.075],18);
+      for(let i=0;i<4;i++)rod(staticArms,[s*.265+(i-1.5)*.025,.93,.16],[s*.265+(i-1.5)*.028,.875,.17],.012,skin,.009);
+      ball(staticArms,skin,[s*.215,.95,.16],[.035,.06,.04],14);
     }
+    root.userData.staticArms=staticArms;
     rod(root,[0,1.72,0],[0,1.88,0],.09,skin,.085);
     const f=faceHead(root,{skin:0xb98261,skinLight:0xc58d6d,hair:0x41352e,headScale:[.29,.36,.255],iris:0x473223});
     ball(f.group,f.hair,[-.257,.055,-.025],[.045,.26,.19],22);ball(f.group,f.hair,[.257,.055,-.025],[.045,.26,.19],22);
@@ -103,16 +105,18 @@
     const hood=ball(root,hoodieShade,[0,1.78,-.12],[.25,.25,.14],24);hood.rotation.x=-.18;
     const hoodLip=add(root,new THREE.TorusGeometry(.19,.045,12,24),hoodieHi,[0,1.79,.035]);hoodLip.rotation.x=Math.PI/2;
     for(const s of [-1,1]){ball(root,hoodieShade,[s*.075,1.68,.25],[.018,.018,.012],10);rod(root,[s*.075,1.68,.25],[s*.08,1.38,.255],.008,white,.006);}
+    const staticArms=new THREE.Group();staticArms.name='legacy-static-arms';root.add(staticArms);
     for(const s of [-1,1]){
       const shoulder=[s*.22,1.68,0],elbow=[s*.30,1.38,.035],wrist=[s*.26,1.08,.11];
-      rod(root,shoulder,elbow,.105,hoodie,.085);ball(root,hoodieHi,elbow,[.085,.085,.085],18);
-      rod(root,elbow,wrist,.085,hoodie,.061);
-      tapered(root,hoodieShade,s*.26,1.075,.11,.064,.064,.07,18);
-      ball(root,skin,[s*.26,.98,.13],[.067,.08,.075],18);
-      for(let i=0;i<4;i++)rod(root,[s*.26+(i-1.5)*.026,.955,.17],[s*.26+(i-1.5)*.027,.895,.18],.011,skin,.008);
-      ball(root,skin,[s*.215,.95,.17],[.032,.052,.04],14);
-      rod(root,[s*.25,1.59,.072],[s*.29,1.15,.13],.002,hoodieShade,.002);
+      rod(staticArms,shoulder,elbow,.105,hoodie,.085);ball(staticArms,hoodieHi,elbow,[.085,.085,.085],18);
+      rod(staticArms,elbow,wrist,.085,hoodie,.061);
+      tapered(staticArms,hoodieShade,s*.26,1.075,.11,.064,.064,.07,18);
+      ball(staticArms,skin,[s*.26,.98,.13],[.067,.08,.075],18);
+      for(let i=0;i<4;i++)rod(staticArms,[s*.26+(i-1.5)*.026,.955,.17],[s*.26+(i-1.5)*.027,.895,.18],.011,skin,.008);
+      ball(staticArms,skin,[s*.215,.95,.17],[.032,.052,.04],14);
+      rod(staticArms,[s*.25,1.59,.072],[s*.29,1.15,.13],.002,hoodieShade,.002);
     }
+    root.userData.staticArms=staticArms;
     rod(root,[0,1.73,0],[0,1.9,0],.082,skin,.078);
     const f=faceHead(root,{skin:0xc58b69,skinLight:0xd29b78,hair:0x30271f,headScale:[.285,.355,.25],iris:0x49372a});
     ball(f.group,hair,[0,.285,-.005],[.30,.12,.265],26);
