@@ -1,7 +1,7 @@
 /* AGROBULL Gustavo Fring — self-contained GLB v2 loader with embedded texture support. */
 (() => {
   'use strict';
-  const MODEL_URL='/models/Gustavo_Fring.glb';
+  const MODEL_URL='/models/Gustavo_Fring%20(3).glb';
   const TYPES={
     5121:{bytes:1,ctor:Uint8Array,read:(v,a)=>v.getUint8(a)},
     5123:{bytes:2,ctor:Uint16Array,read:(v,a)=>v.getUint16(a,true)},
