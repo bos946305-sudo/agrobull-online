@@ -22,6 +22,14 @@
   };
 
   const saved = readSettings();
+  if (document.head) {
+    const perfStyle = document.createElement('style');
+    perfStyle.textContent =
+      'html.agro-perf-lite #grade,html.agro-perf-lite #filmgrain,html.agro-perf-lite #vignette{display:none!important}' +
+      'html.agro-perf-lite .overlay{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}' +
+      'html.agro-perf-lite .glow{filter:none!important;box-shadow:none!important}';
+    document.head.appendChild(perfStyle);
+  }
   const cores = Number(navigator.hardwareConcurrency) || 4;
   const memory = Number(navigator.deviceMemory) || 4;
   const smallScreen = Math.min(window.innerWidth || 0, window.innerHeight || 0) < 720;
@@ -44,7 +52,6 @@
   let lastEvaluation = 0;
   let lastQualityChange = 0;
   let shadowCounter = 0;
-  let renderedFrames = 0;
   let hudFrames = 0;
   let hudAt = performance.now();
   let lastHudAt = hudAt;
@@ -154,7 +161,6 @@
     frameAverage += (delta - frameAverage) * 0.08;
     cpuAverage += (cpuMs - cpuAverage) * 0.08;
     samples++;
-    renderedFrames++;
     hudFrames++;
     evaluate(now);
 
