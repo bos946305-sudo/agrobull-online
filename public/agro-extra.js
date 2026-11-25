@@ -181,6 +181,9 @@
       });
     }
     currentShadowSetting = renderer.shadowMap.enabled;
+    if (window.AgroPerf && typeof window.AgroPerf.setPreferences === 'function') {
+      window.AgroPerf.setPreferences({ quality: S.q, battery: S.battery, fps: S.fps });
+    }
     if (typeof dust !== 'undefined' && dust) dust.visible = !S.battery && profile.dust;
     camera.fov = S.fov;
     camera.updateProjectionMatrix();
