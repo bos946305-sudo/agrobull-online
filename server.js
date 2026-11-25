@@ -113,6 +113,7 @@ function personalizedState(room, viewerId) {
     gameId: game.gameId,
     ranked: !!room.ranked,
     round: game.round,
+    mode: game.mode || 'classic',
     table: game.table,
     table2: game.table2 || null,
     event: game.event || null,
