@@ -230,16 +230,27 @@ require('./server-voice')(io, { getRoomForSocket: roomFor });
 require('./server-specials')(io, { getRoomForSocket: roomFor, rooms, broadcastState, nextPlayerWithCards, playerById });
 require('./server-abilities')(io, { getRoomForSocket: roomFor, rooms, broadcastState, playerById });
 
-function isBeggingProtectionActive(game, now = Date.now()) {
+function isBeggingProtectionActive(game, playerId = null) {
   const protection = game && game.begging;
-  return !!(protection && game.lastPlay && protection.fromId === game.lastPlay.playerId &&
-    Number.isFinite(Number(protection.expiresAt)) && Number(protection.expiresAt) > now);
+  return !!(protection && protection.status === 'protected' &&
+    (!playerId || protection.fromId === playerId));
+}
+function isBeggingDecisionPending(game) {
+  return !!(game && game.begging && game.begging.status === 'pending' &&
+    Number(game.begging.expiresAt) > Date.now());
+}
+function clearBeggingProtectionAtTurn(game, nextPlayerId) {
+  if (game && game.begging && game.begging.status === 'protected' &&
+      game.begging.fromId === nextPlayerId) {
+    game.begging = null;
+    game.message = '⚖️ Круг стола завершён. Адвокатская защита Сола закончилась.';
+  }
 }
 
 function resolveCall(room, caller) {
   const game = room.game;
   const last = game.lastPlay;
-  if (!last || game.phase !== 'playing' || isBeggingProtectionActive(game)) return;
+  if (!last || game.phase !== 'playing' || isBeggingDecisionPending(game) || isBeggingProtectionActive(game, last.playerId)) return;
 
   // A crop card must match the declared table crop. The bull is a wild card.
   const cardResults = last.cards.map(card => ({
@@ -565,25 +576,24 @@ io.on('connection', socket => {
     }
 
     if (skill.id === 'beg') {
-      if (game.phase !== 'playing' || !player.alive || !game.lastPlay ||
-          game.lastPlay.playerId !== player.id || game.currentId === player.id ||
-          isBeggingProtectionActive(game)) {
-        return roomError(socket, 'Адвокатскую мольбу можно включить после своей выкладки, пока соперник ещё может проверить блеф.');
+      const challenge = game.begging;
+      if (game.phase !== 'playing' || !player.alive || !challenge ||
+          challenge.status !== 'pending' || challenge.fromId !== player.id ||
+          Number(challenge.expiresAt) <= Date.now()) {
+        return roomError(socket, 'Мольба доступна только в ответ на подозрение твоей выкладки.');
       }
+      if (data.choice === 'decline') {
+        const caller = playerById(room, challenge.callerId);
+        game.begging = null;
+        if (caller && caller.alive) resolveCall(room, caller);
+        else { game.message = 'Подозрение снято: проверяющий больше не участвует.'; broadcastState(room); }
+        return;
+      }
+      if (data.choice !== 'plead') return roomError(socket, 'Выбери: умолять или отказаться.');
       player.abilityUsed = true;
-      const duration = 10_000;
-      const protection = { id: id(), fromId: player.id, toId: game.currentId, expiresAt: Date.now() + duration };
-      game.begging = protection;
-      game.message = `⚖️ ${player.name} включил адвокатскую защиту: проверка блефа закрыта на 10 секунд!`;
+      game.begging = { id: challenge.id, status: 'protected', fromId: player.id, callerId: challenge.callerId, protectedUntilTurn: player.id };
+      game.message = `⚖️ ${player.name} умолил не проверять карты. Его нельзя подозревать до завершения круга стола!`;
       broadcastState(room);
-      const code = room.code, gameId = game.gameId, protectionId = protection.id;
-      setTimeout(() => {
-        const currentRoom = rooms.get(code);
-        if (!currentRoom?.game || currentRoom.game.gameId !== gameId || currentRoom.game.begging?.id !== protectionId) return;
-        currentRoom.game.begging = null;
-        currentRoom.game.message = '⏱ Адвокатская защита закончилась. Теперь блеф снова можно проверить.';
-        broadcastState(currentRoom);
-      }, duration);
       return;
     }
 
@@ -620,7 +630,7 @@ io.on('connection', socket => {
       return;
     }
     const cards = indexes.sort((a, b) => b - a).map(i => player.hand.splice(i, 1)[0]).reverse();
-    if (game.begging) game.begging = null;
+    if (game.begging && game.begging.status === 'pending') game.begging = null;
     if (io.cardFx) io.cardFx.beforePlay(room, player, cards);
     game.pileCount += cards.length;
     game.lastPlay = { playerId: player.id, cards };
@@ -644,6 +654,7 @@ io.on('connection', socket => {
       return;
     }
     game.currentId = next.id;
+    clearBeggingProtectionAtTurn(game, next.id);
     broadcastState(room);
     reply(true);
   });
@@ -653,9 +664,30 @@ io.on('connection', socket => {
     const game = room?.game;
     const caller = room && playerById(room, socket.data.playerId);
     if (!room || !game || game.phase !== 'playing' || !caller || game.currentId !== caller.id || !game.lastPlay) return;
-    if (isBeggingProtectionActive(game)) {
-      const seconds = Math.max(1, Math.ceil((Number(game.begging.expiresAt) - Date.now()) / 1000));
-      return roomError(socket, `⚖️ Адвокатская мольба активна: проверить этот блеф нельзя ещё ${seconds} сек.`);
+    if (isBeggingDecisionPending(game)) return roomError(socket, 'Сол решает, умолять ли о защите. Подожди до 10 секунд.');
+    if (isBeggingProtectionActive(game, game.lastPlay.playerId)) return roomError(socket, '⚖️ Сол умолил о защите: его нельзя подозревать до завершения круга стола.');
+    const accused = playerById(room, game.lastPlay.playerId);
+    if (accused && accused.character === 'saul' && !accused.abilityUsed) {
+      const duration = 10_000;
+      const challenge = { id: id(), status: 'pending', fromId: accused.id, callerId: caller.id, expiresAt: Date.now() + duration };
+      game.begging = challenge;
+      game.message = `⚖️ ${caller.name} подозревает ${accused.name}. У Сола есть 10 секунд: умолять или принять проверку.`;
+      broadcastState(room);
+      const code = room.code, gameId = game.gameId, challengeId = challenge.id;
+      setTimeout(() => {
+        const currentRoom = rooms.get(code);
+        const currentGame = currentRoom && currentRoom.game;
+        if (!currentGame || currentGame.gameId !== gameId || currentGame.begging?.id !== challengeId || currentGame.begging.status !== 'pending') return;
+        const originalCaller = playerById(currentRoom, challenge.callerId);
+        currentGame.begging = null;
+        if (originalCaller && originalCaller.alive && currentGame.phase === 'playing' && currentGame.lastPlay?.playerId === challenge.fromId) {
+          resolveCall(currentRoom, originalCaller);
+        } else {
+          currentGame.message = 'Время решения истекло, но проверка уже неактуальна.';
+          broadcastState(currentRoom);
+        }
+      }, duration);
+      return;
     }
     resolveCall(room, caller);
   });
