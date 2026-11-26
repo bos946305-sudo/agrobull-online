@@ -143,7 +143,7 @@
 
     const root=new THREE.Group(),active=(json.scenes||[])[json.scene||0];
     root.name='Gustavo Fring';
-    const roots=active&&Array.isArray(active.nodes)?active.nodes:json.nodes.map((n,i)=>n&&n.mesh!=null?i:-1).filter(i=>i>=0);
+    const childNodes=new Set();json.nodes.forEach(node=>(node.children||[]).forEach(child=>childNodes.add(child)));const roots=active&&Array.isArray(active.nodes)?active.nodes:json.nodes.map((n,i)=>childNodes.has(i)?-1:i).filter(i=>i>=0);
     roots.forEach(index=>root.add(makeNode(index)));
     return root;
   }
