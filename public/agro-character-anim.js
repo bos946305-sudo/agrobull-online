@@ -104,8 +104,7 @@
     // GLB wrappers are normalized by a model-specific scale. Counter-scale the overlay so
     // the hand rig stays in the same world units as the normalized 2.35-unit character.
     const sx=Math.abs(root.scale.x)||1,sy=Math.abs(root.scale.y)||1,sz=Math.abs(root.scale.z)||1;
-    const isSeatedGus=record.player?.character==='gus';
-    rig.scale.set(1/sx,isSeatedGus?1/sx:1/sy,1/sz);
+    rig.scale.set(1/sx,1/sy,1/sz);
     root.add(rig);
     const arms={left:makeArm(rig,-1,cloth,skin),right:makeArm(rig,1,cloth,skin)};
     const cards=makeCardFan(rig);
