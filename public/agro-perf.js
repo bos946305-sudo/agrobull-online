@@ -45,7 +45,7 @@
     fps: Object.prototype.hasOwnProperty.call(saved,'fps') && [0,30,60].includes(Number(saved.fps)) ? Number(saved.fps) : (weakDevice ? 30 : 0)
   };
   let pixelCap = preferences.battery ? 1 : PIXEL_CAP[preferences.quality];
-  let scale = weakDevice ? 0.94 : 1;
+  let scale = weakDevice ? 0.98 : 1;
   let tier = 0;
   let lastPixelRatio = 0;
   let lastFrameAt = 0;
@@ -71,7 +71,7 @@
   function effectivePixelRatio() {
     const deviceCap = weakDevice ? 1.1 : baseDpr;
     const requested = Math.min(baseDpr, pixelCap, deviceCap);
-    return Math.round(clamp(requested * scale, 0.55, deviceCap) * 20) / 20;
+    return Math.round(clamp(requested * scale, 0.72, deviceCap) * 20) / 20;
   }
 
   function applyPixelRatio(force = false) {
@@ -130,8 +130,8 @@
     const verySlow = frameAverage > target * 1.48;
     const fast = frameAverage < target * 1.035 && cpuAverage < target * 0.72;
 
-    if (slow && scale > 0.55) {
-      scale = Math.max(0.55, scale - (verySlow ? 0.12 : 0.07));
+    if (slow && scale > 0.72) {
+      scale = Math.max(0.72, scale - (verySlow ? 0.09 : 0.055));
       lastQualityChange = now;
       samples = 0;
       frameAverage = target;
